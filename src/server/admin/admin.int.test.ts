@@ -108,7 +108,11 @@ describe('notes and settings', () => {
   it('saving a setting stores it, clears the placeholder flag, and is audited', async () => {
     const a = await actor()
     const key = 'shipping.freeAbovePaise'
-    const original = await db.storeSetting.findUniqueOrThrow({ where: { key } })
+    // CI runs these tests before the seed, so create the row if it is missing.
+    const original = await db.storeSetting.findUnique({ where: { key } })
+    if (!original) {
+      await db.storeSetting.create({ data: { key, value: 99_900, needsOwnerDecision: true } })
+    }
     try {
       await saveSetting(key, null, a)
       const row = await db.storeSetting.findUniqueOrThrow({ where: { key } })
@@ -116,7 +120,11 @@ describe('notes and settings', () => {
       expect(row.needsOwnerDecision).toBe(false)
       expect(await db.auditLog.count({ where: { entityId: key, actorUserId: a.id } })).toBe(1)
     } finally {
-      await db.storeSetting.update({ where: { key }, data: { value: original.value === null ? Prisma.JsonNull : original.value, needsOwnerDecision: original.needsOwnerDecision } })
+      if (original) {
+        await db.storeSetting.update({ where: { key }, data: { value: original.value === null ? Prisma.JsonNull : original.value, needsOwnerDecision: original.needsOwnerDecision } })
+      } else {
+        await db.storeSetting.delete({ where: { key } })
+      }
     }
   })
 })
