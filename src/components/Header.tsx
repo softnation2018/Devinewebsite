@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { listCategories } from '@/server/catalog'
+import { CartLink } from './CartLink'
 import { Logo } from './Logo'
 
 function SearchForm({ id }: { id: string }) {
@@ -32,7 +33,7 @@ export async function Header() {
 
   return (
     <header className="relative z-30 bg-maroon-900 text-ivory">
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
+      <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-3 py-4 sm:gap-4 sm:px-6">
         {/* Mobile menu: a native disclosure, so it works without JavaScript
             and is keyboard and screen-reader accessible by default. */}
         <details className="group lg:hidden">
@@ -69,9 +70,8 @@ export async function Header() {
           <SearchForm id="search-desktop" />
         </div>
         {/* A plain link, so the header stays static and cacheable. /account
-            sends signed-out visitors to the sign-in page. Wishlist and cart
-            icons arrive with those features. */}
-        <div className="flex items-center gap-4 lg:w-80 lg:justify-end">
+            sends signed-out visitors to the sign-in page. */}
+        <div className="flex items-center gap-1 lg:w-80 lg:justify-end lg:gap-4">
           <Link href="/account" className="flex items-center gap-2 rounded-sm p-2 text-gold-300 hover:text-gold-100">
             <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
               <circle cx="12" cy="8" r="4" />
@@ -79,6 +79,7 @@ export async function Header() {
             </svg>
             <span className="sr-only lg:not-sr-only lg:text-sm">Account</span>
           </Link>
+          <CartLink />
         </div>
       </div>
 

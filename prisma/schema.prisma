@@ -464,6 +464,10 @@ model Order {
   shippingAddress Json // frozen copy at time of order
   billingAddress  Json
 
+  // SHA-256 of a random token given to the buyer, so a guest can open their
+  // own order page without an account. The token itself is never stored.
+  accessTokenHash String? @unique
+
   customerNote String?
   adminNote    String?
   cancelReason String?

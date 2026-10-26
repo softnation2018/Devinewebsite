@@ -12,7 +12,7 @@ export function Logo({ tone = 'light' }: { tone?: 'light' | 'dark' }) {
       data-placeholder="logo"
       className={`inline-flex flex-col items-center leading-none ${text}`}
     >
-      <span className="font-serif text-2xl font-semibold tracking-[0.18em] uppercase sm:text-[1.7rem]">
+      <span className="font-serif text-lg font-semibold tracking-[0.08em] min-[380px]:text-xl min-[380px]:tracking-[0.12em] whitespace-nowrap uppercase sm:text-[1.7rem] sm:tracking-[0.18em]">
         Divine Mantra
       </span>
       <span className="mt-1 rounded-sm border border-dashed border-current px-1.5 py-px text-[9px] tracking-[0.2em] uppercase opacity-70">

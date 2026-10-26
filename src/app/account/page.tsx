@@ -87,7 +87,9 @@ async function Dashboard({ welcome, reset }: { welcome: boolean; reset: boolean 
           <ul className="mt-4 divide-y divide-gold-500/20">
             {recentOrders.map((o) => (
               <li key={o.id} className="flex flex-wrap justify-between gap-2 py-3 text-sm">
-                <span className="font-medium">{o.orderNumber}</span>
+                <Link href={`/order/${o.orderNumber}`} className="font-medium text-maroon-800 underline underline-offset-2">
+                  {o.orderNumber}
+                </Link>
                 <span className="text-stone">{dateFormat.format(o.placedAt)}</span>
                 <span>{STATUS_LABEL[o.status] ?? o.status}</span>
                 <span className="font-medium">{formatPaise(o.totalPaise)}</span>
