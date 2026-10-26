@@ -3,11 +3,14 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { Suspense } from 'react'
 import type { InventoryReason } from '@/generated/prisma/client'
+import { mediaUrl, thumbKey } from '@/lib/media'
 import { formatPaise } from '@/lib/money'
 import { can } from '@/server/admin/access'
 import { requireCapability } from '@/server/admin/guard'
+import { listProductImages, MAX_IMAGES_PER_PRODUCT } from '@/server/admin/images'
 import { GST_RATES_BP, getProductForStaff, listCategoryOptions, MANUAL_STOCK_REASONS } from '@/server/admin/products'
 import { AdminHeading, Badge, dateTime, PRODUCT_STATUS_LABEL } from '../../ui'
+import { PhotoManager } from '../PhotoManager'
 import { ProductForm, StockForm } from '../ProductForm'
 import { productFormValues } from '../values'
 
@@ -36,7 +39,7 @@ export default function AdminProductPage({ params, searchParams }: PageProps<'/a
 
 async function ProductDetail({ id, created }: { id: string; created: boolean }) {
   const user = await requireCapability('products.view')
-  const [product, categories] = await Promise.all([getProductForStaff(id), listCategoryOptions()])
+  const [product, categories, images] = await Promise.all([getProductForStaff(id), listCategoryOptions(), listProductImages(id)])
   if (!product) notFound()
   const inv = product.inventory
   const showCost = can(user.role, 'products.cost')
@@ -91,6 +94,12 @@ async function ProductDetail({ id, created }: { id: string; created: boolean }) 
         </section>
 
         <aside className="space-y-6">
+          {can(user.role, 'products.edit') && (
+            <section className="rounded-sm border border-gold-500/30 bg-white p-4">
+              <h2 className="mb-3 font-serif text-xl text-maroon-900">Photos</h2>
+              <PhotoManager productId={product.id} photos={images.map((i) => ({ id: i.id, url: mediaUrl(thumbKey(i.key)), alt: i.alt ?? '' }))} max={MAX_IMAGES_PER_PRODUCT} />
+            </section>
+          )}
           <section className="rounded-sm border border-gold-500/30 bg-white p-4">
             <h2 className="font-serif text-xl text-maroon-900">Stock</h2>
             {product._count.variants > 0 && <p className="mt-2 text-xs text-maroon-800">This product has variants. Their stock is not managed here yet.</p>}

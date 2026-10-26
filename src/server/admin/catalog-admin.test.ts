@@ -72,3 +72,13 @@ describe('coupon form', () => {
     expect(toIstLocal(d)).toBe('2026-11-01T09:30')
   })
 })
+
+describe('sniffImageType', () => {
+  it('reads the type from the bytes, not the name', async () => {
+    const { sniffImageType } = await import('./images')
+    expect(sniffImageType(new Uint8Array([0xff, 0xd8, 0xff, 0xe0]))).toBe('image/jpeg')
+    expect(sniffImageType(new Uint8Array([...Buffer.from('RIFF'), 0, 0, 0, 0, ...Buffer.from('WEBP')]))).toBe('image/webp')
+    expect(sniffImageType(new TextEncoder().encode('<svg xmlns="http://www.w3.org/2000/svg"/>'))).toBeNull()
+    expect(sniffImageType(new TextEncoder().encode('GIF89a'))).toBeNull()
+  })
+})

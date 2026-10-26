@@ -5,7 +5,8 @@ import { Breadcrumbs } from '@/components/Breadcrumbs'
 import { JsonLd } from '@/components/JsonLd'
 import { Price } from '@/components/Price'
 import { ProductGrid } from '@/components/ProductCard'
-import { ProductImage } from '@/components/ProductImage'
+import { absoluteMediaUrl } from '@/lib/media'
+import { ProductGallery } from '@/components/ProductImage'
 import { SectionHeading } from '@/components/SectionHeading'
 import { StockBadge } from '@/components/StockBadge'
 import { availableStock, getProduct, listProducts } from '@/server/catalog'
@@ -65,6 +66,7 @@ async function ProductPageContent({ slug }: { slug: string }) {
           sku: product.sku,
           description: product.shortDescription ?? undefined,
           material: product.material ?? undefined,
+          image: product.images.length ? product.images.map((i) => absoluteMediaUrl(i.key, siteUrl)) : undefined,
           url,
           offers: {
             '@type': 'Offer',
@@ -100,7 +102,7 @@ async function ProductPageContent({ slug }: { slug: string }) {
 
         <div className="mt-6 grid gap-10 lg:grid-cols-2">
           <div className="self-start overflow-hidden rounded-sm border border-gold-100">
-            <ProductImage name={product.name} />
+            <ProductGallery name={product.name} images={product.images} />
           </div>
 
           <div>
