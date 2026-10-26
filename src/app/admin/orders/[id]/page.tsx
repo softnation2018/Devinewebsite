@@ -9,6 +9,7 @@ import { requireCapability } from '@/server/admin/guard'
 import { getOrderForStaff } from '@/server/admin/orders'
 import { AdminHeading, Badge, dateTime, ORDER_STATUS_LABEL, PAYMENT_STATUS_LABEL } from '../../ui'
 import { CancelForm, NoteForm, StatusButton } from './OrderActions'
+import { ShippingPanel } from './ShippingPanel'
 
 export const metadata: Metadata = { title: 'Order' }
 
@@ -111,6 +112,7 @@ async function OrderDetail({ id }: { id: string }) {
         </div>
 
         <aside className="space-y-6">
+          <ShippingPanel role={user.role} order={order} />
           <section className="rounded-sm border border-gold-500/30 bg-white p-5 text-sm">
             <h2 className="font-serif text-xl text-maroon-900">Customer</h2>
             <p className="mt-2">{order.user ? `${order.user.name ?? ''} ${order.user.email}` : `${order.guestEmail} (guest)`}</p>

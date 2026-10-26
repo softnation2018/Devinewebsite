@@ -11,6 +11,8 @@ export const CAPABILITIES = {
   'products.edit': 'ADMIN',
   'products.cost': 'ADMIN',
   'coupons.manage': 'ADMIN',
+  'shipping.manage': 'STAFF',
+  'cod.record': 'ADMIN',
   'settings.edit': 'OWNER',
   'audit.view': 'ADMIN',
 } as const satisfies Record<string, UserRole>

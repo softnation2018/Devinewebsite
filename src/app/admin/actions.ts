@@ -11,6 +11,17 @@ import { addProductImage, moveProductImage, removeProductImage, setImageAlt } fr
 import { cancelOrder, setAdminNote, setOrderStatus } from '@/server/admin/orders'
 import { adjustStock, createProduct, MANUAL_STOCK_REASONS, type ManualStockReason, parseProductForm, updateProduct } from '@/server/admin/products'
 import { parseSettingInput, saveSetting } from '@/server/admin/settings'
+import { parseIstLocal } from '@/server/admin/coupons'
+import {
+  bookShipment,
+  cancelShipment,
+  confirmRequestedShipment,
+  markRequestNotCreated,
+  recordCodRemittance,
+  recordManualShipment,
+  setManualShipmentStatus,
+} from '@/server/shipping/shipments'
+import { parseRupeesToPaise } from '@/lib/money'
 
 export type AdminState = { error?: string; message?: string }
 
@@ -147,4 +158,66 @@ export async function imageAction(_prev: AdminState, formData: FormData): Promis
   updateTag('catalog')
   refresh()
   return { message: op === 'remove' ? 'Photo removed.' : 'Saved.' }
+}
+
+function boxFrom(formData: FormData) {
+  const n = (k: string) => Number(String(formData.get(k) ?? '').trim())
+  return { weightGrams: n('weightGrams'), lengthCm: n('lengthCm'), breadthCm: n('breadthCm'), heightCm: n('heightCm') }
+}
+
+export async function bookShipmentAction(_prev: AdminState, formData: FormData): Promise<AdminState> {
+  const user = await requireCapability('shipping.manage')
+  const parsed = z
+    .object({
+      orderId: id,
+      provider: z.enum(['ITHINK', 'SHIPROCKET', 'MANUAL']),
+      courierName: z.string().max(80).optional(),
+      awbNumber: z.string().max(60).optional(),
+      trackingUrl: z.string().max(300).optional(),
+    })
+    .safeParse(Object.fromEntries(formData))
+  if (!parsed.success) return { error: 'Invalid request.' }
+  const { orderId, provider, courierName, awbNumber, trackingUrl } = parsed.data
+  const actor = { id: user.id, ip: await clientIp() }
+  const r =
+    provider === 'MANUAL'
+      ? await recordManualShipment(orderId, { courierName: courierName ?? '', awbNumber: awbNumber ?? '', trackingUrl: trackingUrl?.trim() || null }, boxFrom(formData), actor)
+      : await bookShipment(orderId, provider, boxFrom(formData), actor)
+  refresh()
+  return r.ok ? { message: 'Shipment booked.' } : { error: r.error }
+}
+
+export async function shipmentAction(_prev: AdminState, formData: FormData): Promise<AdminState> {
+  const user = await requireCapability('shipping.manage')
+  const parsed = z
+    .object({ shipmentId: id, op: z.enum(['cancel', 'confirm', 'not_created', 'in_transit', 'delivered']), awbNumber: z.string().max(60).optional() })
+    .safeParse(Object.fromEntries(formData))
+  if (!parsed.success) return { error: 'Invalid request.' }
+  const { shipmentId, op, awbNumber } = parsed.data
+  const actor = { id: user.id, ip: await clientIp() }
+  const r =
+    op === 'cancel'
+      ? await cancelShipment(shipmentId, actor)
+      : op === 'confirm'
+        ? await confirmRequestedShipment(shipmentId, awbNumber ?? '', actor)
+        : op === 'not_created'
+          ? await markRequestNotCreated(shipmentId, actor)
+          : await setManualShipmentStatus(shipmentId, op === 'delivered' ? 'DELIVERED' : 'IN_TRANSIT', actor)
+  // Delivery or shipping moves stock, which the shop shows.
+  if (r.ok) updateTag('catalog')
+  refresh()
+  return r.ok ? { message: 'Updated.' } : { error: r.error }
+}
+
+export async function codRemittanceAction(_prev: AdminState, formData: FormData): Promise<AdminState> {
+  const user = await requireCapability('cod.record')
+  const parsed = z.object({ remittanceId: id, utrNumber: z.string().max(40), amount: z.string().max(20), remittedAt: z.string().max(20) }).safeParse(Object.fromEntries(formData))
+  if (!parsed.success) return { error: 'Invalid request.' }
+  const amountPaise = parseRupeesToPaise(parsed.data.amount)
+  const remittedAt = parseIstLocal(`${parsed.data.remittedAt}T12:00`)
+  if (amountPaise === null) return { error: 'Enter the amount in rupees.' }
+  if (!remittedAt) return { error: 'Choose the payout date.' }
+  const r = await recordCodRemittance(parsed.data.remittanceId, { utrNumber: parsed.data.utrNumber, amountPaise, remittedAt }, { id: user.id, ip: await clientIp() })
+  refresh()
+  return r.ok ? { message: 'Payout recorded. The order is now marked paid.' } : { error: r.error }
 }
