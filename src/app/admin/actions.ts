@@ -1,10 +1,14 @@
 'use server'
 
 import { refresh, updateTag } from 'next/cache'
+import { redirect } from 'next/navigation'
 import { z } from 'zod'
 import { clientIp } from '@/server/auth/session'
+import { can } from '@/server/admin/access'
+import { createCoupon, parseCouponForm, updateCoupon } from '@/server/admin/coupons'
 import { requireCapability } from '@/server/admin/guard'
 import { cancelOrder, setAdminNote, setOrderStatus } from '@/server/admin/orders'
+import { adjustStock, createProduct, MANUAL_STOCK_REASONS, type ManualStockReason, parseProductForm, updateProduct } from '@/server/admin/products'
 import { parseSettingInput, saveSetting } from '@/server/admin/settings'
 
 export type AdminState = { error?: string; message?: string }
@@ -50,4 +54,58 @@ export async function saveSettingAction(_prev: AdminState, formData: FormData): 
   updateTag('settings')
   refresh()
   return { message: 'Saved.' }
+}
+
+export async function saveProductAction(_prev: AdminState, formData: FormData): Promise<AdminState> {
+  const user = await requireCapability('products.edit')
+  const productId = String(formData.get('productId') ?? '')
+  const parsed = parseProductForm(formData)
+  if (!parsed.ok) return { error: parsed.error }
+  const actor = { id: user.id, ip: await clientIp(), canCost: can(user.role, 'products.cost') }
+  if (!productId) {
+    const r = await createProduct(parsed.value, actor)
+    if (!r.ok) return { error: r.error }
+    updateTag('catalog')
+    redirect(`/admin/products/${r.id}?created=1`)
+  }
+  const r = await updateProduct(productId, parsed.value, actor)
+  if (!r.ok) return { error: r.error }
+  updateTag('catalog')
+  refresh()
+  return { message: 'Saved.' }
+}
+
+export async function adjustStockAction(_prev: AdminState, formData: FormData): Promise<AdminState> {
+  const user = await requireCapability('stock.adjust')
+  const parsed = z
+    .object({
+      productId: id,
+      delta: z.string().regex(/^[+-]?\d{1,6}$/, 'Enter a whole number, for example 10 or -2.').transform(Number),
+      reason: z.enum(Object.keys(MANUAL_STOCK_REASONS) as [ManualStockReason, ...ManualStockReason[]]),
+      note: z.string().max(300),
+    })
+    .safeParse(Object.fromEntries(formData))
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? 'Invalid request.' }
+  const { productId, delta, reason, note } = parsed.data
+  const r = await adjustStock(productId, delta, reason, note, { id: user.id, ip: await clientIp() })
+  if (!r.ok) return { error: r.error }
+  updateTag('catalog')
+  refresh()
+  return { message: `Stock updated. ${r.onHand} now on hand.` }
+}
+
+export async function saveCouponAction(_prev: AdminState, formData: FormData): Promise<AdminState> {
+  const user = await requireCapability('coupons.manage')
+  const couponId = String(formData.get('couponId') ?? '')
+  const parsed = parseCouponForm(formData)
+  if (!parsed.ok) return { error: parsed.error }
+  const actor = { id: user.id, ip: await clientIp() }
+  if (!couponId) {
+    const r = await createCoupon(parsed.value, actor)
+    if (!r.ok) return { error: r.error }
+    redirect(`/admin/coupons/${r.id}?created=1`)
+  }
+  const r = await updateCoupon(couponId, parsed.value, actor)
+  refresh()
+  return r.ok ? { message: 'Saved.' } : { error: r.error }
 }

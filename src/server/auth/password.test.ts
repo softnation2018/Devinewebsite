@@ -42,12 +42,18 @@ describe('unknown-email timing', () => {
   it('spends real hashing time when no stored hash exists', async () => {
     const real = await hashPassword('some other password')
     await verifyPassword(null, 'warm up the dummy hash')
-    const t0 = performance.now()
-    await verifyPassword(real, 'wrong password here')
-    const knownMs = performance.now() - t0
-    const t1 = performance.now()
-    await verifyPassword(null, 'wrong password here')
-    const unknownMs = performance.now() - t1
+    // Median of a few runs, so one slow moment on a busy machine cannot decide it.
+    const median = async (hash: string | null) => {
+      const runs: number[] = []
+      for (let i = 0; i < 3; i++) {
+        const t = performance.now()
+        await verifyPassword(hash, 'wrong password here')
+        runs.push(performance.now() - t)
+      }
+      return runs.sort((x, y) => x - y)[1]
+    }
+    const knownMs = await median(real)
+    const unknownMs = await median(null)
     // Same order of magnitude, not a fast-fail.
     expect(unknownMs).toBeGreaterThan(knownMs / 4)
   })

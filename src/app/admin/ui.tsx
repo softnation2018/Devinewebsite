@@ -1,4 +1,4 @@
-import type { OrderStatus, PaymentStatus } from '@/generated/prisma/client'
+import type { OrderStatus, PaymentStatus, ProductStatus } from '@/generated/prisma/client'
 
 export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
   PENDING: 'Awaiting payment',
@@ -19,7 +19,16 @@ export const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {
   REFUNDED: 'Refunded',
 }
 
+export const PRODUCT_STATUS_LABEL: Record<ProductStatus, string> = {
+  DRAFT: 'Draft',
+  PUBLISHED: 'On sale',
+  ARCHIVED: 'Archived',
+}
+
 const tone: Record<string, string> = {
+  DRAFT: 'bg-stone/15 text-charcoal',
+  PUBLISHED: 'bg-emerald-100 text-emerald-900',
+  ARCHIVED: 'bg-maroon-700/10 text-maroon-800',
   PENDING: 'bg-stone/15 text-charcoal',
   CONFIRMED: 'bg-gold-100 text-charcoal',
   PROCESSING: 'bg-gold-300/40 text-charcoal',
