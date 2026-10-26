@@ -1,9 +1,11 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
+import { Suspense } from 'react'
 import { Breadcrumbs } from '@/components/Breadcrumbs'
 import { EmptyState } from '@/components/EmptyState'
 import { PageHeader } from '@/components/PageHeader'
 import { ProductGrid } from '@/components/ProductCard'
+import { ProductGridSkeleton } from '@/components/ProductGridSkeleton'
 import { getCategoryWithProducts, listCategories } from '@/server/catalog'
 
 export async function generateStaticParams() {
@@ -22,10 +24,21 @@ export async function generateMetadata({ params }: PageProps<'/category/[slug]'>
   }
 }
 
-// Params are awaited outside any Suspense boundary so an unknown slug
-// returns a real 404 status (see the product page for the reasoning).
-export default async function CategoryPage({ params }: PageProps<'/category/[slug]'>) {
-  const { slug } = await params
+// Params are awaited inside <Suspense>, as the Cache Components guide
+// requires with Partial Prefetching. Awaiting them at the top level broke
+// these pages with a 500 when the catalogue cache was refreshed. An unknown
+// slug therefore streams the not-found page with a noindex tag (HTTP 200).
+export default function CategoryPage({ params }: PageProps<'/category/[slug]'>) {
+  return (
+    <Suspense fallback={<ProductGridSkeleton />}>
+      {params.then(({ slug }) => (
+        <CategoryPageContent slug={slug} />
+      ))}
+    </Suspense>
+  )
+}
+
+async function CategoryPageContent({ slug }: { slug: string }) {
   const category = await getCategoryWithProducts(slug)
   if (!category) notFound()
 

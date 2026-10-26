@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
+import { Suspense } from 'react'
 import { Breadcrumbs } from '@/components/Breadcrumbs'
 import { JsonLd } from '@/components/JsonLd'
 import { Price } from '@/components/Price'
@@ -33,12 +34,21 @@ export async function generateMetadata({ params }: PageProps<'/product/[slug]'>)
   }
 }
 
-// Params are awaited at the top, outside any Suspense boundary, so an
-// unknown slug calls notFound() before streaming starts and the response is
-// a real 404 rather than a 200 with "not found" text. Only cached reads
-// happen here, so new products render on their first request.
-export default async function ProductPage({ params }: PageProps<'/product/[slug]'>) {
-  const { slug } = await params
+// Params are awaited inside <Suspense>, as the Cache Components guide
+// requires with Partial Prefetching. Awaiting them at the top level broke
+// these pages with a 500 when the catalogue cache was refreshed. An unknown
+// slug therefore streams the not-found page with a noindex tag (HTTP 200).
+export default function ProductPage({ params }: PageProps<'/product/[slug]'>) {
+  return (
+    <Suspense fallback={<div className="mx-auto h-[36rem] max-w-7xl animate-pulse bg-ivory" aria-hidden="true" />}>
+      {params.then(({ slug }) => (
+        <ProductPageContent slug={slug} />
+      ))}
+    </Suspense>
+  )
+}
+
+async function ProductPageContent({ slug }: { slug: string }) {
   const product = await getProduct(slug)
   if (!product) notFound()
 

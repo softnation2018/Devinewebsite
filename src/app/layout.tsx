@@ -1,7 +1,5 @@
 import type { Metadata } from 'next'
 import { Cormorant_Garamond, Inter } from 'next/font/google'
-import { Footer } from '@/components/Footer'
-import { Header } from '@/components/Header'
 import './globals.css'
 
 const cormorant = Cormorant_Garamond({
@@ -40,11 +38,7 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
         >
           Skip to content
         </a>
-        <Header />
-        <main id="main" className="flex-1">
-          {children}
-        </main>
-        <Footer />
+        {children}
       </body>
     </html>
   )

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { cacheLife, cacheTag } from 'next/cache'
 import { notFound } from 'next/navigation'
+import { Suspense } from 'react'
 import { PageHeader } from '@/components/PageHeader'
 import { db } from '@/server/db'
 import { listPublishedLegalPages } from '@/server/catalog'
@@ -32,10 +33,21 @@ export async function generateMetadata({ params }: PageProps<'/policies/[slug]'>
   }
 }
 
-// Policy text is shown as plain paragraphs for now. A Markdown renderer
-// with HTML sanitising arrives with the admin page editor (milestone 11).
-export default async function PolicyPage({ params }: PageProps<'/policies/[slug]'>) {
-  const { slug } = await params
+// Params are awaited inside <Suspense>, as the Cache Components guide
+// requires with Partial Prefetching. Awaiting them at the top level broke
+// these pages with a 500 when the catalogue cache was refreshed. An unknown
+// slug therefore streams the not-found page with a noindex tag (HTTP 200).
+export default function PolicyPage({ params }: PageProps<'/policies/[slug]'>) {
+  return (
+    <Suspense fallback={<div className="mx-auto h-96 max-w-3xl animate-pulse bg-ivory" aria-hidden="true" />}>
+      {params.then(({ slug }) => (
+        <PolicyPageContent slug={slug} />
+      ))}
+    </Suspense>
+  )
+}
+
+async function PolicyPageContent({ slug }: { slug: string }) {
   const page = await getPublishedPage(slug)
   if (!page) notFound()
   return (
