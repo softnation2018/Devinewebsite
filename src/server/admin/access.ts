@@ -6,6 +6,11 @@ export const CAPABILITIES = {
   'orders.view': 'STAFF',
   'orders.update': 'STAFF',
   'orders.cancel': 'ADMIN',
+  'products.view': 'STAFF',
+  'stock.adjust': 'STAFF',
+  'products.edit': 'ADMIN',
+  'products.cost': 'ADMIN',
+  'coupons.manage': 'ADMIN',
   'settings.edit': 'OWNER',
   'audit.view': 'ADMIN',
 } as const satisfies Record<string, UserRole>
