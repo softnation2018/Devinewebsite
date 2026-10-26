@@ -28,6 +28,10 @@ npm run dev                   # http://localhost:3000
 | `npx prisma migrate dev` | Apply database migrations locally |
 | `npx prisma studio` | Browse the database in your browser |
 
+## Payments
+
+Online payment is off until Razorpay keys are set. See [docs/razorpay-setup.md](docs/razorpay-setup.md).
+
 ## Secrets
 
 Never commit real keys or passwords. `.env.example` lists every variable with

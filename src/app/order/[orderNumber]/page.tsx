@@ -5,9 +5,9 @@ import { EmptyState } from '@/components/EmptyState'
 import { OrderSummary } from '@/components/OrderSummary'
 import { PageHeader } from '@/components/PageHeader'
 import { formatPaise } from '@/lib/money'
-import { getCurrentUser } from '@/server/auth/session'
-import { orderAccessToken } from '@/server/shop/cart-session'
-import { findOrderForViewer } from '@/server/shop/checkout'
+import { onlinePaymentAvailable } from '@/server/settings'
+import { PayButton } from '../PayButton'
+import { loadViewableOrder } from '../viewer'
 
 export const metadata: Metadata = { title: 'Your order', robots: { index: false, follow: false }, referrer: 'no-referrer' }
 
@@ -37,10 +37,8 @@ const STATUS_TEXT: Record<string, string> = {
 }
 
 async function Order({ orderNumber, keyParam }: { orderNumber: string; keyParam: string | null }) {
-  const [user, cookieToken] = await Promise.all([getCurrentUser(), orderAccessToken()])
-  const order =
-    (await findOrderForViewer(orderNumber, { userId: user?.id ?? null, accessToken: keyParam })) ??
-    (await findOrderForViewer(orderNumber, { userId: null, accessToken: cookieToken }))
+  const found = await loadViewableOrder(orderNumber, keyParam)
+  const order = found?.order
 
   // Same message whether the order is missing or belongs to someone else.
   if (!order) {
@@ -49,18 +47,44 @@ async function Order({ orderNumber, keyParam }: { orderNumber: string; keyParam:
 
   const address = order.shippingAddress as Record<string, string | null>
   const isCod = order.paymentMethod === 'COD'
+  const awaitingPayment = order.paymentMethod === 'RAZORPAY' && order.status === 'PENDING' && order.paymentStatus === 'PENDING'
 
   return (
     <div className="space-y-8">
-      <div className="rounded-sm border border-gold-500/50 bg-gold-100 px-5 py-4">
-        <p className="font-serif text-2xl text-maroon-900">Thank you for your order</p>
-        <p className="mt-1 text-sm">
-          Order <strong>{order.orderNumber}</strong> · {STATUS_TEXT[order.status] ?? order.status}
-        </p>
-        {isCod && order.paymentStatus === 'PENDING' && (
-          <p className="mt-2 text-sm">Please keep {formatPaise(order.totalPaise)} ready to pay in cash on delivery.</p>
-        )}
-      </div>
+      {awaitingPayment ? (
+        <div className="space-y-4 rounded-sm border border-gold-500/50 bg-gold-100 px-5 py-4">
+          <div>
+            <p className="font-serif text-2xl text-maroon-900">Complete your payment</p>
+            <p className="mt-1 text-sm">
+              Order <strong>{order.orderNumber}</strong> is reserved for you for 30 minutes. It is confirmed once Razorpay confirms your payment.
+            </p>
+          </div>
+          {onlinePaymentAvailable() ? (
+            <PayButton orderNumber={order.orderNumber} accessKey={keyParam} totalPaise={order.totalPaise} />
+          ) : (
+            <p className="text-sm text-maroon-800">Online payment is not available right now.</p>
+          )}
+        </div>
+      ) : order.status === 'CANCELLED' ? (
+        <div className="rounded-sm border border-maroon-700/40 bg-maroon-700/5 px-5 py-4">
+          <p className="font-serif text-2xl text-maroon-900">This order was cancelled</p>
+          <p className="mt-1 text-sm">
+            Order <strong>{order.orderNumber}</strong>
+            {order.paymentMethod === 'RAZORPAY' && order.paymentStatus !== 'PAID' ? ' was not paid in time, so the items were released.' : '.'}
+          </p>
+        </div>
+      ) : (
+        <div className="rounded-sm border border-gold-500/50 bg-gold-100 px-5 py-4">
+          <p className="font-serif text-2xl text-maroon-900">Thank you for your order</p>
+          <p className="mt-1 text-sm">
+            Order <strong>{order.orderNumber}</strong> · {STATUS_TEXT[order.status] ?? order.status}
+            {order.paymentStatus === 'PAID' && ' · Paid'}
+          </p>
+          {isCod && order.paymentStatus === 'PENDING' && (
+            <p className="mt-2 text-sm">Please keep {formatPaise(order.totalPaise)} ready to pay in cash on delivery.</p>
+          )}
+        </div>
+      )}
 
       <section aria-labelledby="items-heading" className="rounded-sm border border-gold-500/30 bg-white p-6">
         <h2 id="items-heading" className="font-serif text-xl text-maroon-900">
