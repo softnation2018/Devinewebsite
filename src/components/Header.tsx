@@ -68,10 +68,18 @@ export async function Header() {
         <div className="hidden w-80 lg:block">
           <SearchForm id="search-desktop" />
         </div>
-        {/* Account, wishlist and cart icons arrive with those features
-            (milestones 4 and 5), so nothing here links to a page that
-            does not exist yet. */}
-        <span className="w-10 lg:hidden" aria-hidden="true" />
+        {/* A plain link, so the header stays static and cacheable. /account
+            sends signed-out visitors to the sign-in page. Wishlist and cart
+            icons arrive with those features. */}
+        <div className="flex items-center gap-4 lg:w-80 lg:justify-end">
+          <Link href="/account" className="flex items-center gap-2 rounded-sm p-2 text-gold-300 hover:text-gold-100">
+            <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+              <circle cx="12" cy="8" r="4" />
+              <path d="M4 21c0-4 3.6-7 8-7s8 3 8 7" />
+            </svg>
+            <span className="sr-only lg:not-sr-only lg:text-sm">Account</span>
+          </Link>
+        </div>
       </div>
 
       <nav aria-label="Main" className="hidden border-t border-gold-500/25 lg:block">

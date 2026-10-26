@@ -903,3 +903,11 @@ model LegalPage {
   publishedAt DateTime?
   updatedAt   DateTime  @updatedAt
 }
+
+// Fixed-window rate limiting, stored in Postgres so limits hold across every
+// server instance (an in-memory counter would reset on each serverless call).
+model RateLimit {
+  key         String   @id // e.g. "login:ip:1.2.3.4"
+  count       Int
+  windowStart DateTime
+}
