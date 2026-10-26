@@ -1,26 +1,55 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* Divine Mantra design tokens.
+   Gold is for accents, borders and text on maroon only: gold text on ivory
+   does not meet contrast requirements, so body text on light backgrounds is
+   charcoal or maroon. */
+@theme {
+  --color-maroon-950: #3a0910;
+  --color-maroon-900: #5b0f1a;
+  --color-maroon-800: #7a1424;
+  --color-maroon-700: #8f1d2e;
+  --color-gold-500: #c9a227;
+  --color-gold-400: #d9b648;
+  --color-gold-300: #e6c76a;
+  --color-gold-100: #f6ecc9;
+  --color-ivory: #fbf7ee;
+  --color-warm-white: #fffdf8;
+  --color-charcoal: #2b2523;
+  --color-stone: #6b605b;
+
+  --font-serif: var(--font-cormorant), "Cormorant Garamond", Georgia, serif;
+  --font-sans: var(--font-inter), system-ui, sans-serif;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+html {
+  scroll-behavior: smooth;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
   }
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-warm-white);
+  color: var(--color-charcoal);
+  font-family: var(--font-sans);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-gold-500);
+  outline-offset: 2px;
+}
+
+/* Remove the default disclosure triangle on the mobile menu. */
+summary::-webkit-details-marker {
+  display: none;
 }
