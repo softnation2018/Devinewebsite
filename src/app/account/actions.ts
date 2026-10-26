@@ -16,6 +16,7 @@ import { PASSWORD_MAX, PASSWORD_MIN } from '@/server/auth/password'
 import { clientIp, endSession, getCurrentUser, startSession } from '@/server/auth/session'
 import { sendEmail } from '@/server/email'
 import { consumeRateLimit, resetRateLimit } from '@/server/rate-limit'
+import { adoptGuestCartFor } from '@/server/shop/cart-session'
 
 export type FormState = {
   error?: string
@@ -83,6 +84,7 @@ export async function register(_prev: FormState, formData: FormData): Promise<Fo
 
   await sendVerificationEmail(result.userId, normaliseEmail(parsed.data.email))
   await startSession(result.userId)
+  await adoptGuestCartFor(result.userId)
   redirect('/account?welcome=1')
 }
 
@@ -109,6 +111,7 @@ export async function login(_prev: FormState, formData: FormData): Promise<FormS
 
   await resetRateLimit(emailKey)
   await startSession(userId)
+  await adoptGuestCartFor(userId)
   redirect(safeReturnPath(formData.get('next')))
 }
 
@@ -175,6 +178,7 @@ export async function resetPassword(_prev: FormState, formData: FormData): Promi
   if (!userId) return { error: 'This reset link has expired or was already used. Please request a new one.' }
 
   await startSession(userId)
+  await adoptGuestCartFor(userId)
   redirect('/account?reset=1')
 }
 

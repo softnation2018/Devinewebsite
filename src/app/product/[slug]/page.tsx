@@ -8,6 +8,8 @@ import { ProductImage } from '@/components/ProductImage'
 import { SectionHeading } from '@/components/SectionHeading'
 import { StockBadge } from '@/components/StockBadge'
 import { availableStock, getProduct, listProducts } from '@/server/catalog'
+import { MAX_LINE_QUANTITY } from '@/server/shop/cart'
+import { AddToCartForm } from '../../cart/AddToCartForm'
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
 
@@ -109,19 +111,17 @@ export default async function ProductPage({ params }: PageProps<'/product/[slug]
 
             {product.shortDescription && <p className="mt-6 text-base leading-relaxed">{product.shortDescription}</p>}
 
-            {/* Adding to cart arrives with the cart in milestone 5. The button
-                is shown disabled, with the reason, rather than faking it. */}
-            <button
-              type="button"
-              disabled
-              aria-describedby="ordering-note"
-              className="mt-8 w-full cursor-not-allowed rounded-sm bg-maroon-900/50 px-6 py-3.5 text-sm font-semibold tracking-[0.14em] text-ivory uppercase sm:w-auto"
-            >
-              Add to cart
-            </button>
-            <p id="ordering-note" className="mt-2 text-xs text-stone">
-              Online ordering is being set up and opens soon.
-            </p>
+            {available > 0 ? (
+              <AddToCartForm productId={product.id} maxQuantity={Math.min(available, MAX_LINE_QUANTITY)} />
+            ) : (
+              <button
+                type="button"
+                disabled
+                className="mt-8 w-full cursor-not-allowed rounded-sm bg-stone/40 px-6 py-3.5 text-sm font-semibold tracking-[0.14em] text-ivory uppercase sm:w-auto"
+              >
+                Sold out
+              </button>
+            )}
 
             {product.attributes.length > 0 && (
               <section className="mt-10">
