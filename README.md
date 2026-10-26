@@ -32,6 +32,24 @@ npm run dev                   # http://localhost:3000
 
 Online payment is off until Razorpay keys are set. See [docs/razorpay-setup.md](docs/razorpay-setup.md).
 
+## Product photos
+
+Staff add photos on each product's admin page. The browser shrinks each photo
+(1600px, plus a 600px copy for product cards) before uploading, which also
+removes hidden camera data such as GPS location.
+
+Where photos are kept is set by `MEDIA_STORAGE`:
+
+- `local`: a folder on the server (`MEDIA_DIR`, default `storage/media`). This
+  is the default in development. On a VPS, put it on a persistent disk.
+- `r2`: Cloudflare R2. Needed on Vercel, whose disk is not kept. Create a
+  bucket with a public custom domain, then an API token limited to that bucket
+  with Object Read & Write, and set the `R2_*` variables in the hosting
+  dashboard (never in the code or in chat).
+
+In production with neither set, photo uploads are switched off and the shop
+shows its "Photo coming soon" placeholder.
+
 ## Secrets
 
 Never commit real keys or passwords. `.env.example` lists every variable with

@@ -9,7 +9,7 @@ export function ProductCard({ product }: { product: ProductCardData }) {
   return (
     <article className="group relative flex w-full flex-col overflow-hidden rounded-sm border border-gold-100 bg-white transition-shadow hover:shadow-[0_6px_24px_-12px_rgba(91,15,26,0.35)]">
       <div className="relative">
-        <ProductImage name={product.name} />
+        <ProductImage name={product.name} image={product.images[0]} />
         {soldOut && (
           <span className="absolute top-3 left-3 bg-charcoal/85 px-2 py-1 text-[11px] tracking-wider text-white uppercase">
             Sold out

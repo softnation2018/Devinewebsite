@@ -7,6 +7,7 @@ import { clientIp } from '@/server/auth/session'
 import { can } from '@/server/admin/access'
 import { createCoupon, parseCouponForm, updateCoupon } from '@/server/admin/coupons'
 import { requireCapability } from '@/server/admin/guard'
+import { addProductImage, moveProductImage, removeProductImage, setImageAlt } from '@/server/admin/images'
 import { cancelOrder, setAdminNote, setOrderStatus } from '@/server/admin/orders'
 import { adjustStock, createProduct, MANUAL_STOCK_REASONS, type ManualStockReason, parseProductForm, updateProduct } from '@/server/admin/products'
 import { parseSettingInput, saveSetting } from '@/server/admin/settings'
@@ -108,4 +109,42 @@ export async function saveCouponAction(_prev: AdminState, formData: FormData): P
   const r = await updateCoupon(couponId, parsed.value, actor)
   refresh()
   return r.ok ? { message: 'Saved.' } : { error: r.error }
+}
+
+async function fileBytes(v: FormDataEntryValue | null): Promise<Uint8Array> {
+  return v instanceof File ? new Uint8Array(await v.arrayBuffer()) : new Uint8Array()
+}
+
+export async function uploadProductImageAction(_prev: AdminState, formData: FormData): Promise<AdminState> {
+  const user = await requireCapability('products.edit')
+  const productId = id.safeParse(formData.get('productId'))
+  if (!productId.success) return { error: 'Invalid request.' }
+  const r = await addProductImage(productId.data, await fileBytes(formData.get('large')), await fileBytes(formData.get('thumb')), String(formData.get('alt') ?? ''), {
+    id: user.id,
+    ip: await clientIp(),
+  })
+  if (!r.ok) return { error: r.error }
+  updateTag('catalog')
+  refresh()
+  return { message: 'Photo added.' }
+}
+
+export async function imageAction(_prev: AdminState, formData: FormData): Promise<AdminState> {
+  const user = await requireCapability('products.edit')
+  const parsed = z
+    .object({ imageId: id, op: z.enum(['up', 'down', 'remove', 'alt']), alt: z.string().max(200).optional() })
+    .safeParse(Object.fromEntries(formData))
+  if (!parsed.success) return { error: 'Invalid request.' }
+  const actor = { id: user.id, ip: await clientIp() }
+  const { imageId, op, alt } = parsed.data
+  const r =
+    op === 'remove'
+      ? await removeProductImage(imageId, actor)
+      : op === 'alt'
+        ? await setImageAlt(imageId, alt ?? '', actor)
+        : await moveProductImage(imageId, op === 'up' ? -1 : 1, actor)
+  if (!r.ok) return { error: r.error }
+  updateTag('catalog')
+  refresh()
+  return { message: op === 'remove' ? 'Photo removed.' : 'Saved.' }
 }
