@@ -96,6 +96,8 @@ export async function cancelOrder(orderId: string, reason: string, actor: { id: 
     const order = await tx.order.findUnique({ where: { id: orderId }, select: { status: true, paymentStatus: true, adminNote: true } })
     if (!order) return { ok: false, error: 'Order not found.' }
     if (!CANCELLABLE.includes(order.status)) return { ok: false, error: `A ${order.status.toLowerCase()} order cannot be cancelled here.` }
+    const shipment = await tx.shipment.findFirst({ where: { orderId, status: { notIn: ['CANCELLED', 'FAILED'] } }, select: { id: true } })
+    if (shipment) return { ok: false, error: 'This order has a courier booking. Cancel the shipment first.' }
 
     const paid = order.paymentStatus === 'PAID'
     const { count } = await tx.order.updateMany({

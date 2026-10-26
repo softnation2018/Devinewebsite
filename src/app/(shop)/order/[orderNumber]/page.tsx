@@ -106,6 +106,8 @@ async function Order({ orderNumber, keyParam }: { orderNumber: string; keyParam:
         </div>
       </section>
 
+      {order.shipments[0] && <Tracking shipment={order.shipments[0]} />}
+
       <section aria-labelledby="ship-heading" className="rounded-sm border border-gold-500/30 bg-white p-6 text-sm">
         <h2 id="ship-heading" className="font-serif text-xl text-maroon-900">
           Delivering to
@@ -125,5 +127,55 @@ async function Order({ orderNumber, keyParam }: { orderNumber: string; keyParam:
         Continue shopping
       </Link>
     </div>
+  )
+}
+
+const SHIPMENT_TEXT: Record<string, string> = {
+  CREATED: 'Packed and booked with the courier',
+  PICKUP_SCHEDULED: 'Waiting for the courier to collect it',
+  IN_TRANSIT: 'On its way',
+  OUT_FOR_DELIVERY: 'Out for delivery today',
+  NDR: 'The courier could not deliver it; they will try again or contact you',
+  DELIVERED: 'Delivered',
+  RTO_IN_TRANSIT: 'Being returned to us',
+  RTO_DELIVERED: 'Returned to us',
+}
+
+const when = new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Kolkata' })
+
+function Tracking({
+  shipment: s,
+}: {
+  shipment: { status: string; courierName: string | null; awbNumber: string | null; trackingUrl: string | null; events: { id: string; status: string; location: string | null; occurredAt: Date }[] }
+}) {
+  return (
+    <section aria-labelledby="track-heading" className="rounded-sm border border-gold-500/30 bg-white p-6 text-sm">
+      <h2 id="track-heading" className="font-serif text-xl text-maroon-900">
+        Delivery
+      </h2>
+      <p className="mt-3 font-medium">{SHIPMENT_TEXT[s.status] ?? s.status}</p>
+      <p className="mt-1 text-stone">
+        {s.courierName && `${s.courierName} · `}Tracking number {s.awbNumber}
+      </p>
+      {s.trackingUrl && (
+        <a href={s.trackingUrl} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block text-maroon-800 underline underline-offset-2">
+          Track on the courier’s website
+        </a>
+      )}
+      {s.events.length > 0 && (
+        <>
+          <h3 className="mt-5 text-xs tracking-wider text-stone uppercase">Updates from the courier</h3>
+          <ol className="mt-2 space-y-2 border-l border-gold-500/40 pl-4">
+            {s.events.map((e) => (
+              <li key={e.id}>
+                <span className="font-medium">{e.status}</span>
+                {e.location && <span className="text-stone"> · {e.location}</span>}
+                <div className="text-xs text-stone">{when.format(e.occurredAt)}</div>
+              </li>
+            ))}
+          </ol>
+        </>
+      )}
+    </section>
   )
 }

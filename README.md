@@ -32,6 +32,11 @@ npm run dev                   # http://localhost:3000
 
 Online payment is off until Razorpay keys are set. See [docs/razorpay-setup.md](docs/razorpay-setup.md).
 
+## Shipping
+
+Parcels can be recorded by hand from day one. iThink Logistics and Shiprocket
+switch on when their credentials are set. See [docs/shipping-setup.md](docs/shipping-setup.md).
+
 ## Product photos
 
 Staff add photos on each product's admin page. The browser shrinks each photo

@@ -278,6 +278,20 @@ export async function findOrderForViewer(orderNumber: string, viewer: { userId: 
       items: {
         select: { id: true, nameSnapshot: true, variantSnapshot: true, quantity: true, unitPricePaise: true, lineTotalPaise: true },
       },
+      // Only booked parcels, and only what the customer needs to follow one.
+      shipments: {
+        where: { status: { notIn: ['DRAFT', 'REQUESTED', 'FAILED', 'CANCELLED'] }, awbNumber: { not: null } },
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+        select: {
+          status: true,
+          courierName: true,
+          provider: true,
+          awbNumber: true,
+          trackingUrl: true,
+          events: { orderBy: { occurredAt: 'desc' }, take: 20, select: { id: true, status: true, location: true, occurredAt: true } },
+        },
+      },
     },
   })
   if (!order) return null
