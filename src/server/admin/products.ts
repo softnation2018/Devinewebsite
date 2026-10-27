@@ -2,6 +2,7 @@
 // with an audit-log row. Stock only ever moves through adjustStock, which
 // locks the inventory row and records a movement.
 
+import { randomBytes } from 'node:crypto'
 import { z } from 'zod'
 import type { InventoryReason, Prisma, ProductStatus } from '@/generated/prisma/client'
 import { parseRupeesToPaise } from '@/lib/money'
@@ -120,6 +121,13 @@ const whole = (label: string, min: number, max: number) =>
     return n
   })
 
+/** A stock code made from the name when staff leave SKU empty, e.g. DM-LAPI-BEAD-BRAC-7K2Q. */
+export function autoSku(slug: string): string {
+  const words = slug.split('-').filter(Boolean).slice(0, 3).map((w) => w.slice(0, 4).toUpperCase())
+  const tail = randomBytes(3).toString('hex').slice(0, 4).toUpperCase()
+  return ['DM', ...words, tail].join('-')
+}
+
 export function slugify(name: string): string {
   return name
     .toLowerCase()
@@ -140,7 +148,7 @@ const productSchema = z
       .string()
       .trim()
       .toUpperCase()
-      .regex(/^[A-Z0-9][A-Z0-9-]{1,39}$/, 'SKU: 2 to 40 letters, numbers or dashes.'),
+      .regex(/^([A-Z0-9][A-Z0-9-]{1,39})?$/, 'SKU: 2 to 40 letters, numbers or dashes, or leave it empty.'),
     categoryId: optionalText(40),
     shortDescription: optionalText(300),
     description: optionalText(10_000),
@@ -172,7 +180,7 @@ const productSchema = z
     if (v.compareAt !== null && v.price !== null && v.compareAt <= v.price) {
       ctx.addIssue({ code: 'custom', message: 'Compare-at price must be higher than the price, or left empty.' })
     }
-    return { ...v, slug, pricePaise: v.price ?? 0 }
+    return { ...v, slug, sku: v.sku || autoSku(slug), pricePaise: v.price ?? 0 }
   })
 
 export type ProductInput = z.infer<typeof productSchema>

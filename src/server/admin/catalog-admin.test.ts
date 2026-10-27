@@ -82,3 +82,12 @@ describe('sniffImageType', () => {
     expect(sniffImageType(new TextEncoder().encode('GIF89a'))).toBeNull()
   })
 })
+
+describe('automatic SKU', () => {
+  it('makes a stock code from the name when SKU is left empty', () => {
+    const r = parseProductForm(form({ ...product, name: 'Lapis Lazuli Bead Bracelet', sku: '' }))
+    expect(r.ok && r.value.sku).toMatch(/^DM-LAPI-LAZU-BEAD-[0-9A-F]{4}$/)
+    const own = parseProductForm(form(product))
+    expect(own.ok && own.value.sku).toBe('RUD-5M')
+  })
+})

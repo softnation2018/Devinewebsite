@@ -117,7 +117,7 @@ export function ProductForm({
         <legend className="mb-2 font-serif text-xl text-maroon-900">Basics</legend>
         <Text name="name" label="Name" value={v.name} required maxLength={160} />
         <Text name="nameHi" label="Name in Hindi (optional)" value={v.nameHi} maxLength={160} />
-        <Text name="sku" label="SKU" value={v.sku} required hint="Your own stock code, e.g. RUD-5M-8MM." maxLength={40} />
+        <Text name="sku" label="SKU (optional)" value={v.sku} hint="Your own stock code, e.g. RUD-5M-8MM. Leave empty and one is made from the name." maxLength={40} />
         <Text name="slug" label="Web address (optional)" value={v.slug} hint="Made from the name if left empty." maxLength={80} />
         <div>
           <label htmlFor="p-categoryId" className="block text-sm font-medium">
