@@ -10,7 +10,8 @@ import { getCategoryWithProducts, listCategories } from '@/server/catalog'
 
 export async function generateStaticParams() {
   const categories = await listCategories()
-  return categories.map((c) => ({ slug: c.slug }))
+  // At least one param is required for the build to validate this route, even on an empty new database.
+  return categories.length > 0 ? categories.map((c) => ({ slug: c.slug })) : [{ slug: 'none' }]
 }
 
 export async function generateMetadata({ params }: PageProps<'/category/[slug]'>): Promise<Metadata> {

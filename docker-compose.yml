@@ -1,0 +1,80 @@
+# Run the whole shop on one server:   docker compose up -d --build
+# Add automatic HTTPS for your domain: docker compose --profile https up -d --build
+# Settings and secrets come from a file named .env next to this one
+# (copy .env.example). See docs/self-hosting.md.
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: divine
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: divine_mantra
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U divine -d divine_mantra']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  app:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://divine:${POSTGRES_PASSWORD}@db:5432/divine_mantra
+      MEDIA_STORAGE: ${MEDIA_STORAGE:-local}
+      MEDIA_DIR: /data/media
+    volumes:
+      - media:/data/media
+    ports:
+      - '${APP_PORT:-3000}:3000'
+    depends_on:
+      db:
+        condition: service_healthy
+
+  cron:
+    image: curlimages/curl:8.11.1
+    restart: unless-stopped
+    entrypoint: ['/bin/sh', '/cron.sh']
+    environment:
+      CRON_SECRET: ${CRON_SECRET:?Set CRON_SECRET in .env}
+    volumes:
+      - ./docker/cron.sh:/cron.sh:ro
+    depends_on:
+      - app
+
+  backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    entrypoint: ['/bin/sh', '/backup.sh']
+    environment:
+      DATABASE_URL: postgresql://divine:${POSTGRES_PASSWORD}@db:5432/divine_mantra
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+      BACKUP_HOUR_UTC: ${BACKUP_HOUR_UTC:-21}
+    volumes:
+      - ./docker/backup.sh:/backup.sh:ro
+      - ./backups:/backups
+    depends_on:
+      db:
+        condition: service_healthy
+
+  https:
+    profiles: [https]
+    image: caddy:2.8-alpine
+    restart: unless-stopped
+    command: caddy reverse-proxy --from ${SITE_DOMAIN:-} --to app:3000
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - caddy-data:/data
+    depends_on:
+      - app
+
+volumes:
+  db-data:
+  media:
+  caddy-data:
