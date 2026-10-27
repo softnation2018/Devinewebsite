@@ -1,6 +1,7 @@
 'use server'
 
 import { refresh, updateTag } from 'next/cache'
+import { after } from 'next/server'
 import { redirect } from 'next/navigation'
 import { z } from 'zod'
 import { clientIp } from '@/server/auth/session'
@@ -17,6 +18,7 @@ import { moderateReview } from '@/server/admin/reviews'
 import { MANUAL_METHODS, recordManualRefund, refundViaRazorpay, resolveStuckRefund } from '@/server/payments/refunds'
 import { razorpay } from '@/server/payments/razorpay'
 import { moveReturn } from '@/server/returns'
+import { runEmailJobs } from '@/server/notifications'
 import { parseIstLocal } from '@/server/admin/coupons'
 import {
   bookShipment,
@@ -30,6 +32,11 @@ import {
 import { parseRupeesToPaise } from '@/lib/money'
 
 export type AdminState = { error?: string; message?: string }
+
+/** Sends any customer emails a change just queued, after the response; the cron job is the fallback. */
+function sendQueuedEmails() {
+  after(() => runEmailJobs().catch((e) => console.error('[email] queue run failed', e)))
+}
 
 const id = z.string().min(1).max(40)
 
@@ -49,6 +56,7 @@ export async function cancelOrderAction(_prev: AdminState, formData: FormData): 
   const r = await cancelOrder(parsed.data.orderId, parsed.data.reason, { id: user.id, ip: await clientIp() })
   // Stock was released, so storefront stock counts change.
   if (r.ok) updateTag('catalog')
+  sendQueuedEmails()
   refresh()
   return r.ok ? { message: 'Order cancelled and stock released.' } : { error: r.error }
 }
@@ -211,6 +219,7 @@ export async function shipmentAction(_prev: AdminState, formData: FormData): Pro
           : await setManualShipmentStatus(shipmentId, op === 'delivered' ? 'DELIVERED' : 'IN_TRANSIT', actor)
   // Delivery or shipping moves stock, which the shop shows.
   if (r.ok) updateTag('catalog')
+  sendQueuedEmails()
   refresh()
   return r.ok ? { message: 'Updated.' } : { error: r.error }
 }
@@ -289,6 +298,7 @@ export async function refundAction(_prev: AdminState, formData: FormData): Promi
     parsed.data.kind === 'razorpay'
       ? await refundViaRazorpay(parsed.data.orderId, amountPaise, parsed.data.reason, actor, razorpay)
       : await recordManualRefund(parsed.data.orderId, amountPaise, parsed.data.method ?? 'upi', parsed.data.reference ?? '', parsed.data.reason, actor)
+  sendQueuedEmails()
   refresh()
   return r.ok ? { message: r.message } : { error: r.error }
 }
@@ -300,6 +310,7 @@ export async function resolveRefundAction(_prev: AdminState, formData: FormData)
     .safeParse({ refundId: formData.get('refundId'), outcome: formData.get('outcome'), providerRefundId: String(formData.get('providerRefundId') ?? '') })
   if (!parsed.success) return { error: 'Invalid request.' }
   const r = await resolveStuckRefund(parsed.data.refundId, parsed.data.outcome, parsed.data.providerRefundId, { id: user.id, ip: await clientIp() })
+  sendQueuedEmails()
   refresh()
   return r.ok ? { message: r.message } : { error: r.error }
 }
@@ -311,6 +322,7 @@ export async function returnAction(_prev: AdminState, formData: FormData): Promi
     .safeParse({ returnId: formData.get('returnId'), move: formData.get('move'), note: String(formData.get('note') ?? ''), awbNumber: String(formData.get('awbNumber') ?? '') })
   if (!parsed.success) return { error: 'Invalid request.' }
   const r = await moveReturn(parsed.data.returnId, parsed.data.move, { note: parsed.data.note, awbNumber: parsed.data.awbNumber, restock: formData.get('restock') === 'on' }, { id: user.id, ip: await clientIp() })
+  sendQueuedEmails()
   refresh()
   return r.ok ? { message: 'Saved.' } : { error: r.error }
 }

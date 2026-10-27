@@ -15,6 +15,7 @@
 import type { Prisma, ShipmentStatus, ShippingProvider as ProviderName } from '@/generated/prisma/client'
 import { recordAudit } from '../admin/audit'
 import { db } from '../db'
+import { queueCustomerEmail } from '../notifications'
 import { configuredProviders } from './registry'
 import { type Parcel, ProviderRejected, ProviderUnknown, type ShippingProvider, type TrackingResult } from './types'
 
@@ -321,9 +322,13 @@ async function applyShipmentStatus(tx: Tx, shipmentId: string, to: ShipmentStatu
 
   if (['IN_TRANSIT', 'OUT_FOR_DELIVERY', 'NDR', 'DELIVERED', 'RTO_IN_TRANSIT', 'RTO_DELIVERED'].includes(to)) {
     await convertReservationToSale(tx, order.id)
-    if (order.status === 'CONFIRMED' || order.status === 'PROCESSING') await tx.order.update({ where: { id: order.id }, data: { status: 'SHIPPED' } })
+    if (order.status === 'CONFIRMED' || order.status === 'PROCESSING') {
+      await tx.order.update({ where: { id: order.id }, data: { status: 'SHIPPED' } })
+      if (to !== 'DELIVERED') await queueCustomerEmail(tx, { kind: 'order_shipped', orderId: order.id })
+    }
   }
   if (to === 'DELIVERED') {
+    if (order.status !== 'DELIVERED') await queueCustomerEmail(tx, { kind: 'order_delivered', orderId: order.id })
     await tx.order.update({ where: { id: order.id }, data: { status: 'DELIVERED', deliveredAt: at } })
     // The courier has the cash now; the shop does not until it is remitted.
     await tx.codRemittance.updateMany({

@@ -3,6 +3,7 @@ import type { Prisma } from '@/generated/prisma/client'
 import { formatPaise } from '@/lib/money'
 import { recordAudit } from '../admin/audit'
 import { db } from '../db'
+import { queueCustomerEmail } from '../notifications'
 import { RazorpayError, type RazorpayRefunds } from './razorpay'
 
 // Refunds. Money only moves through Razorpay's refund API (online orders)
@@ -97,6 +98,7 @@ export async function refundViaRazorpay(orderId: string, amountPaise: number, re
         where: { id: prepared.refundId },
         data: { providerRefundId: r.id, ...(r.status === 'processed' ? { status: 'COMPLETED', completedAt: new Date() } : r.status === 'failed' ? { status: 'FAILED' } : {}) },
       })
+      if (r.status === 'processed') await queueCustomerEmail(tx, { kind: 'refund_completed', orderId, refundId: prepared.refundId })
       await settleStatus(tx, orderId)
     })
     if (r.status === 'failed') return { ok: false, error: 'Razorpay could not process this refund.' }
@@ -136,6 +138,7 @@ export async function recordManualRefund(
       data: { orderId, amountPaise, reason: why, status: 'COMPLETED', completedAt: new Date(), method, providerRefundId, initiatedByUserId: actor.id },
       select: { id: true },
     })
+    await queueCustomerEmail(tx, { kind: 'refund_completed', orderId, refundId: refund.id })
     await recordAudit(tx, { actorUserId: actor.id, ipAddress: actor.ip, action: 'refund.manual', entityType: 'Order', entityId: orderId, after: { refundId: refund.id, amountPaise, method, reference: ref, reason: why } })
     await settleStatus(tx, orderId)
     return { ok: true as const, message: 'Refund recorded.' }
@@ -157,6 +160,7 @@ export async function resolveStuckRefund(refundId: string, outcome: 'COMPLETED' 
       where: { id: refundId },
       data: outcome === 'COMPLETED' ? { status: 'COMPLETED', completedAt: new Date(), providerRefundId: rid } : { status: 'FAILED' },
     })
+    if (outcome === 'COMPLETED') await queueCustomerEmail(tx, { kind: 'refund_completed', orderId: refund.orderId, refundId })
     await recordAudit(tx, { actorUserId: actor.id, ipAddress: actor.ip, action: 'refund.resolve', entityType: 'Order', entityId: refund.orderId, after: { refundId, outcome, providerRefundId: rid || null } })
     await settleStatus(tx, refund.orderId)
     return { ok: true as const, message: outcome === 'COMPLETED' ? 'Marked as refunded.' : 'Marked as not refunded.' }
@@ -170,6 +174,7 @@ export async function applyRefundWebhook(providerRefundId: string, status: strin
     const refund = await tx.refund.findUnique({ where: { providerRefundId }, select: { id: true, orderId: true, status: true } })
     if (!refund || refund.status === 'COMPLETED' || refund.status === 'FAILED') return false
     await tx.refund.update({ where: { id: refund.id }, data: status === 'processed' ? { status: 'COMPLETED', completedAt: new Date() } : { status: 'FAILED' } })
+    if (status === 'processed') await queueCustomerEmail(tx, { kind: 'refund_completed', orderId: refund.orderId, refundId: refund.id })
     await settleStatus(tx, refund.orderId)
     return true
   })

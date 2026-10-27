@@ -11,7 +11,7 @@ with a command line. A developer can do it in about an hour.
 |---|---|
 | `db` | PostgreSQL 16, the shop's database. |
 | `app` | The shop. On its first start it sets up the database and builds itself (a few minutes). |
-| `cron` | Every 10 minutes it releases stock held by unpaid online orders. Every hour it refreshes courier tracking. |
+| `cron` | Every 10 minutes it releases stock held by unpaid online orders and sends queued customer emails. Every hour it refreshes courier tracking. |
 | `backup` | A database backup every night into the `backups/` folder, kept for 14 days. |
 | `https` | Optional. Gets a free HTTPS certificate for your domain and serves the shop on it. |
 

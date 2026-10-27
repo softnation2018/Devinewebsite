@@ -4,6 +4,7 @@
 import type { OrderStatus, Prisma } from '@/generated/prisma/client'
 import { db } from '../db'
 import { releaseOrderReservations } from '../payments/online'
+import { queueCustomerEmail } from '../notifications'
 import { recordAudit } from './audit'
 
 const PAGE_SIZE = 25
@@ -131,6 +132,8 @@ export async function cancelOrderInTx(
     before: { status: order.status },
     after: { status: 'CANCELLED', reason: why },
   })
+  // The customer already knows when they cancelled it themselves.
+  if (actor.by === 'staff') await queueCustomerEmail(tx, { kind: 'order_cancelled', orderId })
   return { ok: true }
 }
 
