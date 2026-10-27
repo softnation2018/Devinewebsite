@@ -12,6 +12,7 @@ import { SectionHeading } from '@/components/SectionHeading'
 import { StockBadge } from '@/components/StockBadge'
 import { availableStock, getProduct, listProducts, productOffer } from '@/server/catalog'
 import { MAX_LINE_QUANTITY } from '@/server/shop/cart'
+import { formatPaise } from '@/lib/money'
 import { AddToCartForm } from '../../cart/AddToCartForm'
 import { PublishedReviews, WishlistButton, WriteReview } from '../ProductExtras'
 import { type VariantOption, VariantPicker } from '../VariantPicker'
@@ -161,7 +162,7 @@ async function ProductPageContent({ slug }: { slug: string }) {
                 {product.shortDescription && <p className="mt-6 text-base leading-relaxed">{product.shortDescription}</p>}
 
                 {available > 0 ? (
-                  <AddToCartForm productId={product.id} maxQuantity={Math.min(available, MAX_LINE_QUANTITY)} />
+                  <AddToCartForm productId={product.id} maxQuantity={Math.min(available, MAX_LINE_QUANTITY)} price={formatPaise(product.pricePaise)} />
                 ) : (
                   <button
                     type="button"

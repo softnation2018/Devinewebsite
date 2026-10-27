@@ -43,9 +43,36 @@ async function Checkout() {
     ? await db.address.findFirst({ where: { userId: user.id }, orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }] })
     : null
 
+  const summary = (
+    <>
+      <ul className="space-y-2 text-sm">
+        {quote.lines.map((l) => (
+          <li key={l.itemId} className="flex justify-between gap-3">
+            <span>
+              {l.name} <span className="text-stone">× {l.quantity}</span>
+            </span>
+            <span>{formatPaise(l.unitPricePaise * l.quantity)}</span>
+          </li>
+        ))}
+      </ul>
+      <OrderSummary totals={quote.totals} couponCode={quote.coupon?.ok ? quote.coupon.code : null} />
+      <Link href="/cart" className="block text-sm text-maroon-800 underline underline-offset-2">
+        Edit cart
+      </Link>
+    </>
+  )
+
   return (
     <div className="grid gap-10 lg:grid-cols-[1fr_22rem]">
       <div>
+        {/* On phones the order sits at the top, folded, so the total is seen before the form. */}
+        <details className="mb-6 rounded-sm border border-gold-500/30 bg-white lg:hidden">
+          <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm">
+            <span className="text-maroon-800 underline underline-offset-2">Show order summary</span>
+            <span className="font-semibold text-maroon-900">{formatPaise(quote.totals.totalPaise)}</span>
+          </summary>
+          <div className="space-y-5 border-t border-gold-500/20 px-4 py-4">{summary}</div>
+        </details>
         {!user && (
           <p className="mb-6 text-sm text-stone">
             Checking out as a guest.{' '}
@@ -84,24 +111,11 @@ async function Checkout() {
         )}
       </div>
 
-      <aside aria-labelledby="summary-heading" className="h-fit space-y-5 rounded-sm border border-gold-500/30 bg-white p-6">
+      <aside aria-labelledby="summary-heading" className="hidden h-fit space-y-5 rounded-sm border border-gold-500/30 bg-white p-6 lg:block">
         <h2 id="summary-heading" className="font-serif text-xl text-maroon-900">
           Your order
         </h2>
-        <ul className="space-y-2 text-sm">
-          {quote.lines.map((l) => (
-            <li key={l.itemId} className="flex justify-between gap-3">
-              <span>
-                {l.name} <span className="text-stone">× {l.quantity}</span>
-              </span>
-              <span>{formatPaise(l.unitPricePaise * l.quantity)}</span>
-            </li>
-          ))}
-        </ul>
-        <OrderSummary totals={quote.totals} couponCode={quote.coupon?.ok ? quote.coupon.code : null} />
-        <Link href="/cart" className="block text-sm text-maroon-800 underline underline-offset-2">
-          Edit cart
-        </Link>
+        {summary}
       </aside>
     </div>
   )

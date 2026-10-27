@@ -1,12 +1,15 @@
 import 'server-only'
-// Where product photos are kept. Two stores share one small interface:
+// Where product photos are kept. Three stores share one small interface:
 //  - "r2": Cloudflare R2 through its S3-compatible API (for Vercel hosting)
 //  - "local": a folder on the server's disk (development, or a VPS with a
 //    persistent volume)
-// MEDIA_STORAGE picks one. With neither configured, uploads are switched off.
+//  - "db": rows in the MediaObject table, for a host with neither, like the
+//    free Vercel preview. Fine for a small catalogue; R2 for the real shop.
+// MEDIA_STORAGE picks one; on Vercel without it, "db". With none, uploads are off.
 
 import { mkdir, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
+import { db } from '../db'
 import { sha256Hex, signRequest } from './sigv4'
 
 export type MediaStore = {
@@ -36,6 +39,20 @@ function localStore(): MediaStore {
     async remove(key) {
       assertSafeKey(key)
       await rm(path.join(/*turbopackIgnore: true*/ root, key), { force: true })
+    },
+  }
+}
+
+function dbStore(): MediaStore {
+  return {
+    async put(key, body, contentType) {
+      assertSafeKey(key)
+      const bytes = Uint8Array.from(body)
+      await db.mediaObject.upsert({ where: { key }, create: { key, contentType, bytes }, update: { contentType, bytes } })
+    },
+    async remove(key) {
+      assertSafeKey(key)
+      await db.mediaObject.deleteMany({ where: { key } })
     },
   }
 }
@@ -75,18 +92,20 @@ function r2Config() {
   return accountId && accessKeyId && secretAccessKey && bucket && process.env.R2_PUBLIC_URL ? { accountId, accessKeyId, secretAccessKey, bucket } : null
 }
 
-function mode(): 'r2' | 'local' | null {
+export function mediaMode(): 'r2' | 'local' | 'db' | null {
   const m = process.env.MEDIA_STORAGE
   if (m === 'r2') return r2Config() ? 'r2' : null
   if (m === 'local') return 'local'
+  if (m === 'db' || (!m && process.env.VERCEL)) return 'db'
   if (!m && process.env.NODE_ENV !== 'production') return 'local'
   return null
 }
 
 /** Null when photo storage is not set up; callers say so plainly. */
 export function mediaStore(): MediaStore | null {
-  const m = mode()
+  const m = mediaMode()
   if (m === 'r2') return r2Store(r2Config()!)
   if (m === 'local') return localStore()
+  if (m === 'db') return dbStore()
   return null
 }

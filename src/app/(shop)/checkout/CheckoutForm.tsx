@@ -52,7 +52,7 @@ export function CheckoutForm({
         <Field name="landmark" label="Landmark (optional)" defaultValue={v.landmark} error={e.landmark} required={false} />
         <div className="grid gap-4 sm:grid-cols-2">
           <Field name="city" label="City" autoComplete="shipping address-level2" defaultValue={v.city} error={e.city} />
-          <Field name="pincode" label="PIN code" autoComplete="shipping postal-code" defaultValue={v.pincode} error={e.pincode} />
+          <Field name="pincode" label="PIN code" autoComplete="shipping postal-code" inputMode="numeric" maxLength={6} defaultValue={v.pincode} error={e.pincode} />
         </div>
         <div>
           <label htmlFor="field-state" className="block text-sm font-medium">

@@ -1,14 +1,35 @@
 'use client'
 
 import Link from 'next/link'
-import { useActionState } from 'react'
+import { useActionState, useEffect, useRef, useState } from 'react'
+import { useFormStatus } from 'react-dom'
 import { SubmitButton } from '@/components/forms'
 import { addToCartAction, type CartActionState } from './actions'
 
-export function AddToCartForm({ productId, variantId, maxQuantity }: { productId: string; variantId?: string; maxQuantity: number }) {
+export function AddToCartForm({ productId, variantId, maxQuantity, price }: { productId: string; variantId?: string; maxQuantity: number; price?: string }) {
   const [state, action] = useActionState<CartActionState, FormData>(addToCartAction, {})
+  const formRef = useRef<HTMLFormElement>(null)
+  const [offscreen, setOffscreen] = useState(false)
+
+  // On phones the button scrolls away under the description; keep a copy at
+  // the bottom of the screen while the form itself is out of view.
+  useEffect(() => {
+    const el = formRef.current
+    if (!el) return
+    const io = new IntersectionObserver(([e]) => setOffscreen(!e.isIntersecting && e.boundingClientRect.top < 0))
+    io.observe(el)
+    return () => io.disconnect()
+  }, [])
+  useEffect(() => {
+    if (offscreen) document.body.dataset.buybar = ''
+    else delete document.body.dataset.buybar
+    return () => {
+      delete document.body.dataset.buybar
+    }
+  }, [offscreen])
+
   return (
-    <form action={action} className="mt-8 space-y-3">
+    <form ref={formRef} action={action} className="mt-8 space-y-3">
       <input type="hidden" name="productId" value={productId} />
       {variantId && <input type="hidden" name="variantId" value={variantId} />}
       <div className="flex items-end gap-3">
@@ -44,6 +65,30 @@ export function AddToCartForm({ productId, variantId, maxQuantity }: { productId
           </p>
         )}
       </div>
+      {offscreen && (
+        <div className="fixed inset-x-0 bottom-0 z-40 flex items-center gap-3 border-t border-gold-500/30 bg-white/95 px-4 py-3 shadow-[0_-4px_16px_rgba(0,0,0,0.08)] backdrop-blur lg:hidden">
+          {state.added && !state.error ? (
+            <Link href="/cart" className="text-sm font-medium text-maroon-800 underline underline-offset-2">
+              Added · View cart
+            </Link>
+          ) : (
+            price && <span className="font-serif text-lg text-maroon-900">{price}</span>
+          )}
+          <div className="flex-1">
+            <StickySubmit />
+          </div>
+        </div>
+      )}
     </form>
+  )
+}
+
+// Rendered inside the form, so it submits it with the chosen quantity.
+function StickySubmit() {
+  const { pending } = useFormStatus()
+  return (
+    <button type="submit" disabled={pending} className="w-full rounded-sm bg-maroon-900 px-6 py-3 text-sm tracking-[0.12em] text-ivory uppercase disabled:opacity-60">
+      {pending ? 'Adding…' : 'Add to cart'}
+    </button>
   )
 }

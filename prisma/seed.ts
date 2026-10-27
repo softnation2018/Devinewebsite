@@ -12,6 +12,7 @@ import 'dotenv/config'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { PrismaClient, type Prisma } from '../src/generated/prisma/client'
 import { databaseUrl } from '../src/lib/database-url'
+import { hashPassword, passwordProblem } from '../src/server/auth/password'
 
 const db = new PrismaClient({
   adapter: new PrismaPg({ connectionString: databaseUrl() }),
@@ -174,7 +175,33 @@ const legalPages = [
   ['authenticity', 'Product Authenticity and Sourcing'],
 ] as const
 
+/**
+ * First owner account, for hosts where nobody can run psql (Vercel). Set
+ * OWNER_EMAIL and OWNER_PASSWORD in the host's settings and redeploy. Does
+ * nothing once any owner exists, so the variables cannot later take over the
+ * shop; remove OWNER_PASSWORD after the first sign-in.
+ */
+async function bootstrapOwner() {
+  const email = process.env.OWNER_EMAIL?.trim().toLowerCase()
+  const password = process.env.OWNER_PASSWORD
+  if (!email || !password) return
+  if ((await db.user.count({ where: { role: 'OWNER' } })) > 0) {
+    console.log('An owner account already exists; OWNER_EMAIL/OWNER_PASSWORD ignored. You can remove them.')
+    return
+  }
+  const problem = passwordProblem(password)
+  if (problem) throw new Error(`OWNER_PASSWORD: ${problem}`)
+  const passwordHash = await hashPassword(password)
+  await db.user.upsert({
+    where: { email },
+    update: { role: 'OWNER', passwordHash, emailVerifiedAt: new Date(), isActive: true },
+    create: { email, role: 'OWNER', passwordHash, emailVerifiedAt: new Date() },
+  })
+  console.log(`Owner account ready for ${email}. Remove OWNER_PASSWORD from the settings now.`)
+}
+
 async function main() {
+  await bootstrapOwner()
   if (process.env.SEED_ONLY_IF_EMPTY === 'true' && (await db.storeSetting.count()) > 0) {
     console.log('Shop already set up; seed skipped.')
     return

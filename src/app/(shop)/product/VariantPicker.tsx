@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { formatPaise } from '@/lib/money'
 import { Price } from '@/components/Price'
 import { StockBadge } from '@/components/StockBadge'
 import { AddToCartForm } from '../cart/AddToCartForm'
@@ -41,7 +42,7 @@ export function VariantPicker({ productId, options, lowStockThreshold, maxLine }
 
       {selected.available > 0 ? (
         // Keyed by option, so the quantity resets when the choice changes.
-        <AddToCartForm key={selected.id} productId={productId} variantId={selected.id} maxQuantity={Math.min(selected.available, maxLine)} />
+        <AddToCartForm key={selected.id} productId={productId} variantId={selected.id} maxQuantity={Math.min(selected.available, maxLine)} price={formatPaise(selected.pricePaise)} />
       ) : (
         <button
           type="button"

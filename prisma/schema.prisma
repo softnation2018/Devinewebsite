@@ -915,3 +915,12 @@ model RateLimit {
   count       Int
   windowStart DateTime
 }
+
+/// Photo bytes, for hosts without a disk or R2 (the free Vercel preview).
+/// Only used when MEDIA_STORAGE is "db".
+model MediaObject {
+  key         String   @id
+  contentType String
+  bytes       Bytes
+  createdAt   DateTime @default(now())
+}

@@ -11,6 +11,8 @@ export function Field({
   error,
   hint,
   required = true,
+  inputMode,
+  maxLength,
 }: {
   name: string
   label: string
@@ -20,6 +22,8 @@ export function Field({
   error?: string
   hint?: string
   required?: boolean
+  inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode']
+  maxLength?: number
 }) {
   const id = `field-${name}`
   const describedBy = [hint && `${id}-hint`, error && `${id}-error`].filter(Boolean).join(' ') || undefined
@@ -33,6 +37,8 @@ export function Field({
         name={name}
         type={type}
         autoComplete={autoComplete}
+        inputMode={inputMode}
+        maxLength={maxLength}
         defaultValue={defaultValue}
         required={required}
         aria-invalid={error ? true : undefined}
