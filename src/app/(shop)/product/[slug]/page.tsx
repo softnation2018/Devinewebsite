@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { siteUrl as siteUrlOf } from '@/lib/site'
 import { notFound } from 'next/navigation'
 import { Suspense } from 'react'
 import { Breadcrumbs } from '@/components/Breadcrumbs'
@@ -16,7 +17,7 @@ import { PublishedReviews, WishlistButton, WriteReview } from '../ProductExtras'
 import { type VariantOption, VariantPicker } from '../VariantPicker'
 import { getPublishedReviews } from '@/server/reviews'
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
+const siteUrl = siteUrlOf()
 
 export async function generateStaticParams() {
   const products = await listProducts()

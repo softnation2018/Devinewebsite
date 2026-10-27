@@ -1,18 +1,18 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "prisma migrate deploy && SEED_ONLY_IF_EMPTY=true SEED_DEMO_PRODUCTS=false prisma db seed && next build",
+  "buildCommand": "prisma migrate deploy && SEED_ONLY_IF_EMPTY=true SEED_DEMO_PRODUCTS=${SHOW_DEMO_PRODUCTS:-false} prisma db seed && next build",
   "crons": [
     {
       "path": "/api/cron/release-unpaid",
-      "schedule": "*/10 * * * *"
+      "schedule": "0 1 * * *"
     },
     {
       "path": "/api/cron/track-shipments",
-      "schedule": "15 * * * *"
+      "schedule": "0 2 * * *"
     },
     {
       "path": "/api/cron/send-emails",
-      "schedule": "*/5 * * * *"
+      "schedule": "0 3 * * *"
     }
   ]
 }

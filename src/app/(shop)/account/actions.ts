@@ -1,5 +1,6 @@
 'use server'
 
+import { siteUrl as siteUrlOf } from '@/lib/site'
 import { redirect } from 'next/navigation'
 import { z } from 'zod'
 import {
@@ -26,7 +27,7 @@ export type FormState = {
   name?: string
 }
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
+const siteUrl = siteUrlOf()
 const MINUTE = 60
 
 const email = z.string().trim().max(254).email('Enter a valid email address.')

@@ -1,7 +1,9 @@
 // Public site address and whether search engines may index it.
 
 export function siteUrl(): string {
-  return (process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000').replace(/\/+$/, '')
+  // On Vercel without a custom domain yet, use the project's own .vercel.app address.
+  const vercel = process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : null
+  return (process.env.NEXT_PUBLIC_SITE_URL || vercel || 'http://localhost:3000').replace(/\/+$/, '')
 }
 
 /**
