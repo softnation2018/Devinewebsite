@@ -7,7 +7,11 @@ const isPlain = (v: string | undefined): v is string => !!v && /^postgres(ql)?:\
 
 export function databaseUrl(opts: { direct?: boolean } = {}): string {
   const names = [...(opts.direct ? ['DATABASE_URL_UNPOOLED'] : []), 'DATABASE_URL', 'POSTGRES_URL']
-  const found = names.map((n) => process.env[n]).find(isPlain)
-  if (!found) throw new Error(`No postgres:// connection string in ${names.join(', ')}`)
+  // Integrations may add a prefix (DATABASE_POSTGRES_URL, STORAGE_URL...),
+  // so fall back to any *_URL variable naming a database with a plain address.
+  const found =
+    names.map((n) => process.env[n]).find(isPlain) ??
+    Object.entries(process.env).find(([k, v]) => /(DATABASE|POSTGRES|STORAGE).*_URL$/.test(k) && isPlain(v))?.[1]
+  if (!found) throw new Error(`No postgres:// connection string in ${names.join(', ')} or any *_URL database variable`)
   return found
 }
