@@ -11,6 +11,8 @@ import { addProductImage, moveProductImage, removeProductImage, setImageAlt } fr
 import { cancelOrder, setAdminNote, setOrderStatus } from '@/server/admin/orders'
 import { adjustStock, createProduct, MANUAL_STOCK_REASONS, type ManualStockReason, parseProductForm, updateProduct } from '@/server/admin/products'
 import { parseSettingInput, saveSetting } from '@/server/admin/settings'
+import { pageSchema, saveLegalPage } from '@/server/admin/pages'
+import { INQUIRY_STATUSES, updateInquiry } from '@/server/admin/inquiries'
 import { parseIstLocal } from '@/server/admin/coupons'
 import {
   bookShipment,
@@ -220,4 +222,35 @@ export async function codRemittanceAction(_prev: AdminState, formData: FormData)
   const r = await recordCodRemittance(parsed.data.remittanceId, { utrNumber: parsed.data.utrNumber, amountPaise, remittedAt }, { id: user.id, ip: await clientIp() })
   refresh()
   return r.ok ? { message: 'Payout recorded. The order is now marked paid.' } : { error: r.error }
+}
+
+export async function savePageAction(_prev: AdminState, formData: FormData): Promise<AdminState> {
+  const user = await requireCapability('content.edit')
+  const slug = z.string().regex(/^[a-z0-9-]{2,40}$/).safeParse(formData.get('slug'))
+  const parsed = pageSchema.safeParse({
+    title: String(formData.get('title') ?? ''),
+    bodyMarkdown: String(formData.get('bodyMarkdown') ?? ''),
+    seoTitle: String(formData.get('seoTitle') ?? ''),
+    seoDescription: String(formData.get('seoDescription') ?? ''),
+    publish: formData.get('publish') === 'on',
+    reviewed: formData.get('reviewed') === 'on',
+  })
+  if (!slug.success) return { error: 'Invalid request.' }
+  if (!parsed.success) return { error: parsed.error.issues.map((i) => i.message).join(' ') }
+  const r = await saveLegalPage(slug.data, parsed.data, { id: user.id, ip: await clientIp() })
+  if (!r.ok) return { error: r.error }
+  updateTag('legal')
+  refresh()
+  return { message: parsed.data.publish ? 'Saved and published.' : 'Saved as a draft (not shown in the shop).' }
+}
+
+export async function updateInquiryAction(_prev: AdminState, formData: FormData): Promise<AdminState> {
+  const user = await requireCapability('orders.update')
+  const parsed = z
+    .object({ inquiryId: id, status: z.enum(INQUIRY_STATUSES), note: z.string().max(2000) })
+    .safeParse({ inquiryId: formData.get('inquiryId'), status: formData.get('status'), note: String(formData.get('note') ?? '') })
+  if (!parsed.success) return { error: 'Invalid request.' }
+  const r = await updateInquiry(parsed.data.inquiryId, parsed.data.status, parsed.data.note, { id: user.id, ip: await clientIp() })
+  refresh()
+  return r.ok ? { message: 'Saved.' } : { error: r.error }
 }

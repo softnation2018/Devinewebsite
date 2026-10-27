@@ -14,6 +14,7 @@ export const CAPABILITIES = {
   'shipping.manage': 'STAFF',
   'cod.record': 'ADMIN',
   'settings.edit': 'OWNER',
+  'content.edit': 'OWNER',
   'audit.view': 'ADMIN',
 } as const satisfies Record<string, UserRole>
 

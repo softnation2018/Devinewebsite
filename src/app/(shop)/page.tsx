@@ -1,6 +1,8 @@
 import Link from 'next/link'
+import { JsonLd } from '@/components/JsonLd'
 import { ProductGrid } from '@/components/ProductCard'
 import { SectionHeading } from '@/components/SectionHeading'
+import { siteUrl } from '@/lib/site'
 import { listCategories, listProducts } from '@/server/catalog'
 
 export default async function HomePage() {
@@ -12,6 +14,8 @@ export default async function HomePage() {
 
   return (
     <>
+      {/* Name and web address only: no logo, rating or registration details until they are real. */}
+      <JsonLd data={{ '@context': 'https://schema.org', '@type': 'Organization', name: 'Divine Mantra', url: siteUrl() }} />
       <section className="relative overflow-hidden bg-maroon-900 text-ivory">
         <div
           aria-hidden="true"

@@ -1,5 +1,6 @@
 import { Footer } from '@/components/Footer'
 import { Header } from '@/components/Header'
+import { WhatsAppButton } from '@/components/WhatsAppButton'
 
 export default function ShopLayout({ children }: LayoutProps<'/'>) {
   return (
@@ -9,6 +10,7 @@ export default function ShopLayout({ children }: LayoutProps<'/'>) {
         {children}
       </main>
       <Footer />
+      <WhatsAppButton />
     </>
   )
 }

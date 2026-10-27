@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import { Cormorant_Garamond, Inter } from 'next/font/google'
+import { Analytics } from '@/components/Analytics'
+import { indexingAllowed, siteUrl } from '@/lib/site'
 import './globals.css'
 
 const cormorant = Cormorant_Garamond({
@@ -15,10 +17,8 @@ const inter = Inter({
   display: 'swap',
 })
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
-
 export const metadata: Metadata = {
-  metadataBase: new URL(siteUrl),
+  metadataBase: new URL(siteUrl()),
   title: {
     default: 'Divine Mantra | Spiritual, Devotional & Vastu Products',
     template: '%s | Divine Mantra',
@@ -26,6 +26,8 @@ export const metadata: Metadata = {
   description:
     'Yantras, rudraksha, malas, bracelets and devotional products from Divine Mantra, described honestly and shipped across India.',
   openGraph: { siteName: 'Divine Mantra', locale: 'en_IN', type: 'website' },
+  // Until ALLOW_INDEXING=true, every page also asks search engines not to list it.
+  robots: indexingAllowed() ? undefined : { index: false, follow: false },
 }
 
 export default function RootLayout({ children }: LayoutProps<'/'>) {
@@ -39,6 +41,7 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
           Skip to content
         </a>
         {children}
+        <Analytics />
       </body>
     </html>
   )
