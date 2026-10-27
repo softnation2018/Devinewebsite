@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "prisma migrate deploy && SEED_ONLY_IF_EMPTY=true SEED_DEMO_PRODUCTS=${SHOW_DEMO_PRODUCTS:-false} prisma db seed && next build",
+  "buildCommand": "prisma migrate deploy && SEED_ONLY_IF_EMPTY=true SEED_DEMO_PRODUCTS=${SHOW_DEMO_PRODUCTS:-false} prisma db seed && tsx prisma/import-catalog.ts && next build",
   "crons": [
     {
       "path": "/api/cron/release-unpaid",

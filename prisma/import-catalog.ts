@@ -1,0 +1,96 @@
+// Adds the products in prisma/catalog/products.json, with their photos, to a
+// shop that does not have them yet. Runs on every deploy and skips any
+// product whose web address already exists, so staff edits are never
+// overwritten and a deleted-then-recreated product is left alone.
+//
+// Products arrive as drafts with price 0 and no stock: staff set the price
+// and stock in Admin → Products and publish from there.
+//
+// Photos are written straight into the photo store when it is the database
+// (Vercel) or a local folder; with R2, upload them in the admin instead.
+
+import 'dotenv/config'
+import { randomBytes } from 'node:crypto'
+import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
+import path from 'node:path'
+import { PrismaPg } from '@prisma/adapter-pg'
+import { PrismaClient } from '../src/generated/prisma/client'
+import { databaseUrl } from '../src/lib/database-url'
+
+type Entry = {
+  folder: string
+  slug: string
+  sku: string
+  name: string
+  nameHi?: string
+  category: string
+  material: string
+  shortDescription: string
+  description: string
+  alts: string[]
+}
+
+const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl() }) })
+const root = path.join(process.cwd(), 'prisma', 'catalog')
+
+function photoStore(): 'db' | 'local' | null {
+  const m = process.env.MEDIA_STORAGE
+  if (m === 'db' || (!m && process.env.VERCEL)) return 'db'
+  if (m === 'local' || (!m && process.env.NODE_ENV !== 'production')) return 'local'
+  return null
+}
+
+async function put(key: string, bytes: Buffer) {
+  if (photoStore() === 'db') {
+    await db.mediaObject.upsert({ where: { key }, create: { key, contentType: 'image/webp', bytes }, update: { bytes } })
+  } else {
+    const file = path.join(path.resolve(process.env.MEDIA_DIR || 'storage/media'), key)
+    await mkdir(path.dirname(file), { recursive: true })
+    await writeFile(file, bytes)
+  }
+}
+
+async function main() {
+  const entries = JSON.parse(await readFile(path.join(root, 'products.json'), 'utf8')) as Entry[]
+  const store = photoStore()
+  let added = 0
+  for (const e of entries) {
+    if (await db.product.findFirst({ where: { OR: [{ slug: e.slug }, { sku: e.sku }] }, select: { id: true } })) continue
+    const category = await db.category.findUnique({ where: { slug: e.category }, select: { id: true } })
+    const product = await db.product.create({
+      data: {
+        slug: e.slug,
+        sku: e.sku,
+        name: e.name,
+        nameHi: e.nameHi ?? null,
+        categoryId: category?.id ?? null,
+        material: e.material,
+        shortDescription: e.shortDescription,
+        description: e.description,
+        pricePaise: 0,
+        status: 'DRAFT',
+        inventory: { create: { onHand: 0 } },
+      },
+      select: { id: true },
+    })
+    if (store) {
+      const dir = path.join(root, 'images', e.folder)
+      const names = (await readdir(dir)).filter((f) => f.endsWith('.webp') && !f.endsWith('.thumb.webp')).sort()
+      for (const [i, file] of names.entries()) {
+        const key = `products/${product.id}/${randomBytes(12).toString('hex')}.webp`
+        await put(key, await readFile(path.join(dir, file)))
+        await put(key.replace(/\.webp$/, '.thumb.webp'), await readFile(path.join(dir, file.replace(/\.webp$/, '.thumb.webp'))))
+        await db.productImage.create({ data: { productId: product.id, key, alt: e.alts[i] ?? e.name, position: i } })
+      }
+    }
+    added++
+  }
+  console.log(`Catalog import: ${added} new draft product(s)${store ? '' : ' (photos skipped: upload them in the admin)'}.`)
+}
+
+main()
+  .catch((err) => {
+    console.error(err)
+    process.exitCode = 1
+  })
+  .finally(() => db.$disconnect())
