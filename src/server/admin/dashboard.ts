@@ -20,10 +20,19 @@ export async function getDashboard(now = new Date()) {
     db.order.count({ where: { paymentMethod: 'COD', paymentStatus: 'PENDING', status: { notIn: ['CANCELLED', 'RETURNED'] } } }),
     db.storeSetting.count({ where: { needsOwnerDecision: true } }),
     db.$queryRaw<{ id: string; name: string; sku: string; available: number; threshold: number }[]>`
-      SELECT p.id, p.name, p.sku, (i."onHand" - i.reserved)::int AS available, p."lowStockThreshold" AS threshold
-      FROM "Product" p JOIN "Inventory" i ON i."productId" = p.id
-      WHERE p.status = 'PUBLISHED' AND (i."onHand" - i.reserved) <= p."lowStockThreshold"
-      ORDER BY available ASC, p.name ASC
+      SELECT * FROM (
+        -- Products sold without options use their own stock...
+        SELECT p.id, p.name, p.sku, (i."onHand" - i.reserved)::int AS available, p."lowStockThreshold" AS threshold
+        FROM "Product" p JOIN "Inventory" i ON i."productId" = p.id
+        WHERE p.status = 'PUBLISHED' AND NOT EXISTS (SELECT 1 FROM "ProductVariant" v WHERE v."productId" = p.id AND v."isActive")
+        UNION ALL
+        -- ...products sold in options are listed option by option.
+        SELECT p.id, p.name || ' (' || v.name || ')', v.sku, (i."onHand" - i.reserved)::int, p."lowStockThreshold"
+        FROM "ProductVariant" v JOIN "Product" p ON p.id = v."productId" JOIN "Inventory" i ON i."variantId" = v.id
+        WHERE p.status = 'PUBLISHED' AND v."isActive"
+      ) s
+      WHERE available <= threshold
+      ORDER BY available ASC, name ASC
       LIMIT 20`,
   ])
   return {

@@ -38,6 +38,7 @@ export async function listProductsForStaff(opts: { status?: ProductStatus; q?: s
         lowStockThreshold: true,
         category: { select: { name: true } },
         inventory: { select: { onHand: true, reserved: true } },
+        variants: { where: { isActive: true }, select: { inventory: { select: { onHand: true, reserved: true } } } },
       },
     }),
   ])
@@ -322,13 +323,16 @@ export const MANUAL_STOCK_REASONS = {
 
 export type ManualStockReason = keyof typeof MANUAL_STOCK_REASONS
 
+/** A simple product's own stock, or one variant's. */
+export type StockTarget = { productId: string } | { variantId: string }
+
 /**
- * Changes the stock on hand of a simple product. The row is locked so a
+ * Changes the stock on hand of a simple product or of one variant. The row is locked so a
  * concurrent checkout cannot interleave, and stock already promised to
  * open orders (reserved) can never be taken away.
  */
 export async function adjustStock(
-  productId: string,
+  target: StockTarget,
   delta: number,
   reason: ManualStockReason,
   note: string,
@@ -341,8 +345,8 @@ export async function adjustStock(
   if (reason === 'MANUAL_ADJUSTMENT' && !why) return { ok: false, error: 'Please say why the count is being corrected.' }
 
   return db.$transaction(async (tx) => {
-    const inv = await tx.inventory.findUnique({ where: { productId }, select: { id: true } })
-    if (!inv) return { ok: false as const, error: 'This product has no stock record.' }
+    const inv = await tx.inventory.findUnique({ where: target, select: { id: true } })
+    if (!inv) return { ok: false as const, error: 'This item has no stock record.' }
     const [row] = await tx.$queryRaw<{ onHand: number; reserved: number }[]>`
       SELECT "onHand", "reserved" FROM "Inventory" WHERE id = ${inv.id} FOR UPDATE`
     const onHand = row.onHand + delta
@@ -361,8 +365,8 @@ export async function adjustStock(
       actorUserId: actor.id,
       ipAddress: actor.ip,
       action: 'stock.adjust',
-      entityType: 'Product',
-      entityId: productId,
+      entityType: 'variantId' in target ? 'ProductVariant' : 'Product',
+      entityId: 'variantId' in target ? target.variantId : target.productId,
       before: { onHand: row.onHand },
       after: { onHand, delta, reason, note: why || null },
     })

@@ -5,11 +5,12 @@ import { useActionState } from 'react'
 import { SubmitButton } from '@/components/forms'
 import { addToCartAction, type CartActionState } from './actions'
 
-export function AddToCartForm({ productId, maxQuantity }: { productId: string; maxQuantity: number }) {
+export function AddToCartForm({ productId, variantId, maxQuantity }: { productId: string; variantId?: string; maxQuantity: number }) {
   const [state, action] = useActionState<CartActionState, FormData>(addToCartAction, {})
   return (
     <form action={action} className="mt-8 space-y-3">
       <input type="hidden" name="productId" value={productId} />
+      {variantId && <input type="hidden" name="variantId" value={variantId} />}
       <div className="flex items-end gap-3">
         <div>
           <label htmlFor="quantity" className="block text-xs tracking-wider text-stone uppercase">

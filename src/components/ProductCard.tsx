@@ -1,11 +1,12 @@
 import Link from 'next/link'
 import type { ProductCard as ProductCardData } from '@/server/catalog'
-import { availableStock } from '@/server/catalog'
+import { productOffer } from '@/server/catalog'
 import { Price } from './Price'
 import { ProductImage } from './ProductImage'
 
 export function ProductCard({ product }: { product: ProductCardData }) {
-  const soldOut = availableStock(product.inventory) <= 0
+  const offer = productOffer(product)
+  const soldOut = offer.available <= 0
   return (
     <article className="group relative flex w-full flex-col overflow-hidden rounded-sm border border-gold-100 bg-white transition-shadow hover:shadow-[0_6px_24px_-12px_rgba(91,15,26,0.35)]">
       <div className="relative">
@@ -31,7 +32,7 @@ export function ProductCard({ product }: { product: ProductCardData }) {
           </Link>
         </h3>
         <div className="mt-auto pt-2">
-          <Price pricePaise={product.pricePaise} compareAtPaise={product.compareAtPaise} />
+          <Price pricePaise={offer.pricePaise} compareAtPaise={offer.compareAtPaise} from={offer.from} />
         </div>
       </div>
     </article>

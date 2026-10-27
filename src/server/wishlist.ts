@@ -1,4 +1,5 @@
 import 'server-only'
+import { productCardSelect } from './catalog'
 import { db } from './db'
 
 export async function isInWishlist(userId: string, productId: string): Promise<boolean> {
@@ -27,21 +28,7 @@ export async function listWishlist(userId: string) {
     where: { wishlist: { userId }, product: { status: 'PUBLISHED' } },
     orderBy: { createdAt: 'desc' },
     select: {
-      product: {
-        select: {
-          id: true,
-          slug: true,
-          name: true,
-          shortDescription: true,
-          pricePaise: true,
-          compareAtPaise: true,
-          isDemo: true,
-          lowStockThreshold: true,
-          images: { select: { key: true, alt: true }, orderBy: { position: 'asc' }, take: 1 },
-          inventory: { select: { onHand: true, reserved: true } },
-          category: { select: { slug: true, name: true } },
-        },
-      },
+      product: { select: productCardSelect },
     },
   })
   return items.map((i) => i.product)

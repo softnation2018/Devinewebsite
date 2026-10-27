@@ -7,7 +7,7 @@
 import { cacheLife, cacheTag } from 'next/cache'
 import { db } from './db'
 
-const productCardSelect = {
+export const productCardSelect = {
   id: true,
   slug: true,
   name: true,
@@ -19,6 +19,11 @@ const productCardSelect = {
   images: { select: { key: true, alt: true }, orderBy: { position: 'asc' }, take: 1 },
   inventory: { select: { onHand: true, reserved: true } },
   category: { select: { slug: true, name: true } },
+  variants: {
+    where: { isActive: true },
+    orderBy: { createdAt: 'asc' },
+    select: { id: true, name: true, sku: true, pricePaise: true, compareAtPaise: true, inventory: { select: { onHand: true, reserved: true } } },
+  },
 } as const
 
 export type ProductCard = Awaited<ReturnType<typeof listProducts>>[number]
@@ -155,4 +160,34 @@ export async function listSitemapEntries() {
     db.legalPage.findMany({ where: { isPublished: true }, select: { slug: true, updatedAt: true } }),
   ])
   return { categories, products, pages }
+}
+
+type OfferSource = {
+  pricePaise: number
+  compareAtPaise: number | null
+  inventory: { onHand: number; reserved: number } | null
+  variants: { pricePaise: number | null; compareAtPaise: number | null; inventory: { onHand: number; reserved: number } | null }[]
+}
+
+/**
+ * What a product card shows. A product sold in options shows its lowest
+ * option price (as "from" when the options differ) and the stock of all
+ * its options together; its own stock record is not used.
+ */
+export function productOffer(p: OfferSource) {
+  if (p.variants.length === 0) {
+    return { pricePaise: p.pricePaise, compareAtPaise: p.compareAtPaise, available: availableStock(p.inventory), from: false }
+  }
+  const options = p.variants.map((v) => ({
+    pricePaise: v.pricePaise ?? p.pricePaise,
+    compareAtPaise: v.pricePaise === null ? p.compareAtPaise : v.compareAtPaise,
+    available: availableStock(v.inventory),
+  }))
+  const cheapest = options.reduce((a, b) => (b.pricePaise < a.pricePaise ? b : a))
+  return {
+    pricePaise: cheapest.pricePaise,
+    compareAtPaise: cheapest.compareAtPaise,
+    available: options.reduce((sum, o) => sum + o.available, 0),
+    from: options.some((o) => o.pricePaise !== cheapest.pricePaise),
+  }
 }

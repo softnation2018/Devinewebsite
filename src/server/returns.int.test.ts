@@ -109,4 +109,19 @@ describe('staff handling', () => {
     expect(await moveReturn(ret.id, 'CLOSE', { note: '', awbNumber: '', restock: false }, staff)).toEqual({ ok: true })
     expect(await db.auditLog.count({ where: { entityId: o.id, action: { startsWith: 'return.' } } })).toBe(5)
   })
+
+  it('puts a returned option back into the stock of that option, not of the product', async () => {
+    const v = await db.productVariant.create({ data: { productId: goodProduct, sku: `${tag}-V`.toUpperCase(), name: '8 mm', options: {}, inventory: { create: { onHand: 1 } } }, include: { inventory: true } })
+    const o = await deliveredOrder()
+    await db.orderItem.deleteMany({ where: { orderId: o.id, nameSnapshot: 'Kumkum' } })
+    const mala = o.items.find((i) => i.nameSnapshot === 'Mala')!.id
+    await db.orderItem.update({ where: { id: mala }, data: { variantId: v.id } })
+    await requestReturn(o.id, 7, { lines: [{ orderItemId: mala, quantity: 1 }], reason: 'DAMAGED', note: '' }, { userId: null, ip: null })
+    const ret = await db.return.findFirstOrThrow({ where: { orderId: o.id } })
+    const productStock = (await db.inventory.findUniqueOrThrow({ where: { id: inventoryId } })).onHand
+    await moveReturn(ret.id, 'APPROVE', { note: '', awbNumber: '', restock: false }, staff)
+    expect(await moveReturn(ret.id, 'RECEIVE', { note: '', awbNumber: '', restock: true }, staff)).toEqual({ ok: true })
+    expect((await db.inventory.findUniqueOrThrow({ where: { id: v.inventory!.id } })).onHand).toBe(2)
+    expect((await db.inventory.findUniqueOrThrow({ where: { id: inventoryId } })).onHand).toBe(productStock)
+  })
 })

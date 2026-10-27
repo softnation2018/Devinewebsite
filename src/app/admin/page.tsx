@@ -70,7 +70,7 @@ async function Dashboard() {
             </thead>
             <tbody className="divide-y divide-gold-500/20">
               {d.lowStock.map((p) => (
-                <tr key={p.id}>
+                <tr key={p.sku}>
                   <td className="py-2">{p.name}</td>
                   <td className="text-stone">{p.sku}</td>
                   <td className={`text-right font-medium ${p.available === 0 ? 'text-maroon-700' : ''}`}>{p.available}</td>

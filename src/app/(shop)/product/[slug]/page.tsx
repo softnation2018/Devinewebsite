@@ -9,10 +9,11 @@ import { absoluteMediaUrl } from '@/lib/media'
 import { ProductGallery } from '@/components/ProductImage'
 import { SectionHeading } from '@/components/SectionHeading'
 import { StockBadge } from '@/components/StockBadge'
-import { availableStock, getProduct, listProducts } from '@/server/catalog'
+import { availableStock, getProduct, listProducts, productOffer } from '@/server/catalog'
 import { MAX_LINE_QUANTITY } from '@/server/shop/cart'
 import { AddToCartForm } from '../../cart/AddToCartForm'
 import { PublishedReviews, WishlistButton, WriteReview } from '../ProductExtras'
+import { type VariantOption, VariantPicker } from '../VariantPicker'
 import { getPublishedReviews } from '@/server/reviews'
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
@@ -56,7 +57,15 @@ async function ProductPageContent({ slug }: { slug: string }) {
   const product = await getProduct(slug)
   if (!product) notFound()
 
-  const available = availableStock(product.inventory)
+  const options: VariantOption[] = product.variants.map((v) => ({
+    id: v.id,
+    name: v.name,
+    pricePaise: v.pricePaise ?? product.pricePaise,
+    compareAtPaise: v.pricePaise === null ? product.compareAtPaise : v.compareAtPaise,
+    available: availableStock(v.inventory),
+  }))
+  const offer = productOffer(product)
+  const available = offer.available
   const ratings = await getPublishedReviews(product.id)
   const url = `${siteUrl}/product/${product.slug}`
 
@@ -72,13 +81,24 @@ async function ProductPageContent({ slug }: { slug: string }) {
           material: product.material ?? undefined,
           image: product.images.length ? product.images.map((i) => absoluteMediaUrl(i.key, siteUrl)) : undefined,
           url,
-          offers: {
-            '@type': 'Offer',
-            price: (product.pricePaise / 100).toFixed(2),
-            priceCurrency: 'INR',
-            availability: available > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
-            url,
-          },
+          offers:
+            options.length > 0
+              ? {
+                  '@type': 'AggregateOffer',
+                  lowPrice: (Math.min(...options.map((o) => o.pricePaise)) / 100).toFixed(2),
+                  highPrice: (Math.max(...options.map((o) => o.pricePaise)) / 100).toFixed(2),
+                  offerCount: options.length,
+                  priceCurrency: 'INR',
+                  availability: available > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+                  url,
+                }
+              : {
+                  '@type': 'Offer',
+                  price: (product.pricePaise / 100).toFixed(2),
+                  priceCurrency: 'INR',
+                  availability: available > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+                  url,
+                },
           // Only real, approved reviews from customers who received the product.
           aggregateRating:
             ratings.count > 0 && ratings.average !== null
@@ -123,25 +143,34 @@ async function ProductPageContent({ slug }: { slug: string }) {
             <h1 className="font-serif text-3xl leading-tight text-charcoal sm:text-4xl">{product.name}</h1>
             <p className="mt-1 text-xs tracking-wider text-stone">SKU {product.sku}</p>
 
-            <div className="mt-5">
-              <Price pricePaise={product.pricePaise} compareAtPaise={product.compareAtPaise} size="lg" />
-            </div>
-            <div className="mt-2">
-              <StockBadge available={available} lowStockThreshold={product.lowStockThreshold} />
-            </div>
-
-            {product.shortDescription && <p className="mt-6 text-base leading-relaxed">{product.shortDescription}</p>}
-
-            {available > 0 ? (
-              <AddToCartForm productId={product.id} maxQuantity={Math.min(available, MAX_LINE_QUANTITY)} />
+            {options.length > 0 ? (
+              <>
+                <VariantPicker productId={product.id} options={options} lowStockThreshold={product.lowStockThreshold} maxLine={MAX_LINE_QUANTITY} />
+                {product.shortDescription && <p className="mt-2 text-base leading-relaxed">{product.shortDescription}</p>}
+              </>
             ) : (
-              <button
-                type="button"
-                disabled
-                className="mt-8 w-full cursor-not-allowed rounded-sm bg-stone/40 px-6 py-3.5 text-sm font-semibold tracking-[0.14em] text-ivory uppercase sm:w-auto"
-              >
-                Sold out
-              </button>
+              <>
+                <div className="mt-5">
+                  <Price pricePaise={product.pricePaise} compareAtPaise={product.compareAtPaise} size="lg" />
+                </div>
+                <div className="mt-2">
+                  <StockBadge available={available} lowStockThreshold={product.lowStockThreshold} />
+                </div>
+
+                {product.shortDescription && <p className="mt-6 text-base leading-relaxed">{product.shortDescription}</p>}
+
+                {available > 0 ? (
+                  <AddToCartForm productId={product.id} maxQuantity={Math.min(available, MAX_LINE_QUANTITY)} />
+                ) : (
+                  <button
+                    type="button"
+                    disabled
+                    className="mt-8 w-full cursor-not-allowed rounded-sm bg-stone/40 px-6 py-3.5 text-sm font-semibold tracking-[0.14em] text-ivory uppercase sm:w-auto"
+                  >
+                    Sold out
+                  </button>
+                )}
+              </>
             )}
 
             <div className="mt-4">
