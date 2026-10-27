@@ -17,7 +17,8 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
 
 export async function generateStaticParams() {
   const products = await listProducts()
-  return products.map((p) => ({ slug: p.slug }))
+  // At least one param is required for the build to validate this route, even on an empty new database.
+  return products.length > 0 ? products.map((p) => ({ slug: p.slug })) : [{ slug: 'none' }]
 }
 
 export async function generateMetadata({ params }: PageProps<'/product/[slug]'>): Promise<Metadata> {

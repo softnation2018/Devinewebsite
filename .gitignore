@@ -46,3 +46,6 @@ next-env.d.ts
 # generated Prisma client
 /src/generated
 /storage
+
+# backups written by docker compose
+/backups

@@ -1,4 +1,8 @@
 // Development seed. Safe to run repeatedly: every write is an upsert.
+// With SEED_DEMO_PRODUCTS=false (used for a new live shop) it sets up
+// categories, settings, couriers and policy drafts, but no demo products.
+// With SEED_ONLY_IF_EMPTY=true it does nothing once the shop has settings,
+// so deployments can run it every time without touching the owner's changes.
 //
 // Every product created here is DEMO content (isDemo = true, "(Demo)" in the
 // name). Prices, stock and descriptions are placeholders, not real listings.
@@ -170,6 +174,10 @@ const legalPages = [
 ] as const
 
 async function main() {
+  if (process.env.SEED_ONLY_IF_EMPTY === 'true' && (await db.storeSetting.count()) > 0) {
+    console.log('Shop already set up; seed skipped.')
+    return
+  }
   const categoryIds = new Map<string, string>()
   for (const c of categories) {
     const row = await db.category.upsert({
@@ -180,7 +188,7 @@ async function main() {
     categoryIds.set(c.slug, row.id)
   }
 
-  for (const p of products) {
+  for (const p of process.env.SEED_DEMO_PRODUCTS === 'false' ? [] : products) {
     const data = {
       slug: p.slug,
       name: p.name,

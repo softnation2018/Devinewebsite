@@ -63,6 +63,12 @@ shows its "Photo coming soon" placeholder.
 - **Google**: `/sitemap.xml` lists real (non-demo) products, categories and published policies. Every page asks search engines not to index the site until `ALLOW_INDEXING=true` is set on the live site (then redeploy).
 - **Analytics**: Google Analytics 4 and the Meta pixel load only when `NEXT_PUBLIC_GA_MEASUREMENT_ID` / `NEXT_PUBLIC_META_PIXEL_ID` are set. With them empty, no tracking script is added.
 
+## Launch and self-hosting
+
+- `docs/launch-checklist.md`: everything to set up before opening, in order.
+- `docs/self-hosting.md`: run the whole shop on your own server with `docker compose`. It covers nightly backups and how to restore them.
+- `GET /api/health` answers `{"ok":true}` when the shop can reach its database.
+
 ## Secrets
 
 Never commit real keys or passwords. `.env.example` lists every variable with
