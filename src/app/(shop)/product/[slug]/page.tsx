@@ -12,6 +12,8 @@ import { StockBadge } from '@/components/StockBadge'
 import { availableStock, getProduct, listProducts } from '@/server/catalog'
 import { MAX_LINE_QUANTITY } from '@/server/shop/cart'
 import { AddToCartForm } from '../../cart/AddToCartForm'
+import { PublishedReviews, WishlistButton, WriteReview } from '../ProductExtras'
+import { getPublishedReviews } from '@/server/reviews'
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
 
@@ -55,6 +57,7 @@ async function ProductPageContent({ slug }: { slug: string }) {
   if (!product) notFound()
 
   const available = availableStock(product.inventory)
+  const ratings = await getPublishedReviews(product.id)
   const url = `${siteUrl}/product/${product.slug}`
 
   return (
@@ -76,6 +79,11 @@ async function ProductPageContent({ slug }: { slug: string }) {
             availability: available > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
             url,
           },
+          // Only real, approved reviews from customers who received the product.
+          aggregateRating:
+            ratings.count > 0 && ratings.average !== null
+              ? { '@type': 'AggregateRating', ratingValue: ratings.average, reviewCount: ratings.count, bestRating: 5, worstRating: 1 }
+              : undefined,
         }}
       />
       <JsonLd
@@ -136,6 +144,12 @@ async function ProductPageContent({ slug }: { slug: string }) {
               </button>
             )}
 
+            <div className="mt-4">
+              <Suspense fallback={<div className="h-5" />}>
+                <WishlistButton productId={product.id} slug={product.slug} />
+              </Suspense>
+            </div>
+
             {product.attributes.length > 0 && (
               <section className="mt-10">
                 <h2 className="text-xs tracking-[0.2em] text-maroon-900 uppercase">Specifications</h2>
@@ -171,6 +185,18 @@ async function ProductPageContent({ slug }: { slug: string }) {
           </div>
         </div>
       </div>
+
+      <section aria-labelledby="reviews-heading" className="mx-auto max-w-3xl px-4 pb-14 sm:px-6">
+        <h2 id="reviews-heading" className="font-serif text-3xl text-maroon-900">
+          Customer reviews
+        </h2>
+        <PublishedReviews productId={product.id} />
+        <div className="mt-6">
+          <Suspense fallback={<div className="h-10" />}>
+            <WriteReview productId={product.id} slug={product.slug} />
+          </Suspense>
+        </div>
+      </section>
 
       {product.related.length > 0 && (
         <section className="bg-ivory px-4 py-14 sm:px-6">

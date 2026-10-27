@@ -13,6 +13,7 @@ import { adjustStock, createProduct, MANUAL_STOCK_REASONS, type ManualStockReaso
 import { parseSettingInput, saveSetting } from '@/server/admin/settings'
 import { pageSchema, saveLegalPage } from '@/server/admin/pages'
 import { INQUIRY_STATUSES, updateInquiry } from '@/server/admin/inquiries'
+import { moderateReview } from '@/server/admin/reviews'
 import { parseIstLocal } from '@/server/admin/coupons'
 import {
   bookShipment,
@@ -253,4 +254,15 @@ export async function updateInquiryAction(_prev: AdminState, formData: FormData)
   const r = await updateInquiry(parsed.data.inquiryId, parsed.data.status, parsed.data.note, { id: user.id, ip: await clientIp() })
   refresh()
   return r.ok ? { message: 'Saved.' } : { error: r.error }
+}
+
+export async function moderateReviewAction(_prev: AdminState, formData: FormData): Promise<AdminState> {
+  const user = await requireCapability('reviews.moderate')
+  const parsed = z.object({ reviewId: id, to: z.enum(['APPROVED', 'REJECTED']) }).safeParse({ reviewId: formData.get('reviewId'), to: formData.get('to') })
+  if (!parsed.success) return { error: 'Invalid request.' }
+  const r = await moderateReview(parsed.data.reviewId, parsed.data.to, { id: user.id, ip: await clientIp() })
+  if (!r.ok) return { error: r.error }
+  updateTag('reviews')
+  refresh()
+  return { message: 'Saved.' }
 }
