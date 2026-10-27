@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Suspense } from 'react'
 import { formatPaise } from '@/lib/money'
-import { COUPON_TYPE_LABEL, listCoupons } from '@/server/admin/coupons'
+import { categoryNames, COUPON_TYPE_LABEL, listCoupons } from '@/server/admin/coupons'
 import { requireCapability } from '@/server/admin/guard'
 import { AdminHeading, dateTime } from '../ui'
 
@@ -25,7 +25,7 @@ export default function CouponsPage() {
 
 async function Coupons() {
   await requireCapability('coupons.manage')
-  const coupons = await listCoupons()
+  const [coupons, names] = await Promise.all([listCoupons(), categoryNames()])
   const now = new Date()
   if (coupons.length === 0) return <p className="text-sm text-stone">No coupons yet.</p>
   return (
@@ -53,7 +53,7 @@ async function Coupons() {
                 </td>
                 <td className="px-3">
                   {c.type === 'PERCENTAGE' ? `${(c.valueBp ?? 0) / 100}% off` : c.type === 'FIXED' ? `${formatPaise(c.valuePaise ?? 0)} off` : COUPON_TYPE_LABEL[c.type]}
-                  {c.appliesToCategory && <span className="block text-xs text-maroon-800">Category coupon: not usable yet</span>}
+                  {c.appliesToCategory && <span className="block text-xs text-stone">Only {names.get(c.appliesToCategory) ?? 'a removed category'}</span>}
                 </td>
                 <td className="px-3">{c.minOrderPaise ? formatPaise(c.minOrderPaise) : '—'}</td>
                 <td className="px-3">

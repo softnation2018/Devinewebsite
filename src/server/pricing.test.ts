@@ -100,6 +100,27 @@ describe('calculateOrderTotals', () => {
     expect(r.lineTaxes[2].taxPaise).toBe(0)
   })
 
+  it('discounts only the lines a category coupon covers, and counts the minimum on them alone', () => {
+    const lines = [
+      { unitPricePaise: 60_000, quantity: 1, gstRateBp: 0, couponEligible: true },
+      { unitPricePaise: 40_000, quantity: 1, gstRateBp: 1200, couponEligible: false },
+    ]
+    const r = calculateOrderTotals({ ...base, lines, coupon: { type: 'PERCENTAGE', valueBp: 1_000, minOrderPaise: 0, maxDiscountPaise: null } })
+    expect(r.discountPaise).toBe(6_000)
+    // The other line keeps its full value, and so its full GST.
+    expect(r.lineTaxes[1].taxablePaise + r.lineTaxes[1].taxPaise).toBe(40_000)
+    expect(r.lineTaxes[0].taxablePaise).toBe(54_000)
+
+    const fixed = calculateOrderTotals({ ...base, lines, coupon: { type: 'FIXED', valuePaise: 90_000, minOrderPaise: 0 } })
+    expect(fixed.discountPaise).toBe(60_000)
+
+    const short = calculateOrderTotals({ ...base, lines, coupon: { type: 'FIXED', valuePaise: 5_000, minOrderPaise: 70_000 } })
+    expect(short).toMatchObject({ discountPaise: 0, couponRejected: 'BELOW_MINIMUM' })
+
+    const none = calculateOrderTotals({ ...base, lines: [lines[1]], coupon: { type: 'FIXED', valuePaise: 5_000, minOrderPaise: 0 } })
+    expect(none).toMatchObject({ discountPaise: 0, couponRejected: 'NO_ELIGIBLE_ITEMS' })
+  })
+
   it('refuses malformed input instead of guessing', () => {
     expect(() => calculateOrderTotals({ ...base, lines: [] })).toThrow(PricingError)
     expect(() =>

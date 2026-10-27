@@ -35,6 +35,12 @@ export function listCoupons() {
   return db.coupon.findMany({ orderBy: [{ isActive: 'desc' }, { createdAt: 'desc' }] })
 }
 
+/** Category names by id, for showing which category a coupon covers. */
+export async function categoryNames(): Promise<Map<string, string>> {
+  const rows = await db.category.findMany({ select: { id: true, name: true } })
+  return new Map(rows.map((r) => [r.id, r.name]))
+}
+
 export function getCoupon(id: string) {
   return db.coupon.findUnique({ where: { id } })
 }
@@ -84,6 +90,10 @@ const couponSchema = z
     usageLimitPerUser: count('Uses per customer'),
     startsAt: when('Starts'),
     endsAt: when('Ends'),
+    appliesToCategory: z
+      .string()
+      .max(40)
+      .transform((s) => s.trim() || null),
     isActive: z.boolean(),
   })
   .transform((v, ctx) => {
@@ -96,6 +106,10 @@ const couponSchema = z
     } else if (v.type === 'FIXED') {
       valuePaise = v.amount
       if (!valuePaise) ctx.addIssue({ code: 'custom', message: 'Discount amount: enter an amount above zero.' })
+    }
+    if (v.type === 'FREE_SHIPPING' && v.appliesToCategory) {
+      // Shipping is charged per order, not per item, so it cannot belong to one category.
+      ctx.addIssue({ code: 'custom', message: 'Free shipping applies to the whole order, so it cannot be limited to one category.' })
     }
     if (v.startsAt && v.endsAt && v.endsAt <= v.startsAt) ctx.addIssue({ code: 'custom', message: 'The end must be after the start.' })
     return {
@@ -110,6 +124,7 @@ const couponSchema = z
       usageLimitPerUser: v.usageLimitPerUser ?? 1,
       startsAt: v.startsAt,
       endsAt: v.endsAt,
+      appliesToCategory: v.appliesToCategory,
       isActive: v.isActive,
     }
   })
@@ -120,7 +135,7 @@ export function parseCouponForm(formData: FormData): { ok: true; value: CouponIn
   const raw = Object.fromEntries(formData)
   const str = (k: string) => (typeof raw[k] === 'string' ? (raw[k] as string) : '')
   const parsed = couponSchema.safeParse({
-    ...Object.fromEntries(['code', 'description', 'type', 'percent', 'amount', 'minOrder', 'maxDiscount', 'usageLimitTotal', 'usageLimitPerUser', 'startsAt', 'endsAt'].map((k) => [k, str(k)])),
+    ...Object.fromEntries(['code', 'description', 'type', 'percent', 'amount', 'minOrder', 'maxDiscount', 'usageLimitTotal', 'usageLimitPerUser', 'startsAt', 'endsAt', 'appliesToCategory'].map((k) => [k, str(k)])),
     isActive: raw.isActive === 'on',
   })
   if (!parsed.success) return { ok: false, error: parsed.error.issues.map((i) => i.message).join(' ') }
@@ -130,7 +145,12 @@ export function parseCouponForm(formData: FormData): { ok: true; value: CouponIn
 const json = (c: CouponInput | Record<string, unknown>) =>
   JSON.parse(JSON.stringify(c, (_k, val) => (val instanceof Date ? val.toISOString() : val)))
 
+async function categoryMissing(id: string | null) {
+  return id !== null && !(await db.category.findUnique({ where: { id }, select: { id: true } }))
+}
+
 export async function createCoupon(v: CouponInput, actor: Actor): Promise<StaffResult & { id?: string }> {
+  if (await categoryMissing(v.appliesToCategory)) return { ok: false, error: 'Choose a category from the list.' }
   try {
     return await db.$transaction(async (tx) => {
       const c = await tx.coupon.create({ data: v, select: { id: true } })
@@ -143,9 +163,10 @@ export async function createCoupon(v: CouponInput, actor: Actor): Promise<StaffR
   }
 }
 
-const LOCKED_AFTER_USE = ['code', 'type', 'valueBp', 'valuePaise'] as const
+const LOCKED_AFTER_USE = ['code', 'type', 'valueBp', 'valuePaise', 'appliesToCategory'] as const
 
 export async function updateCoupon(id: string, v: CouponInput, actor: Actor): Promise<StaffResult> {
+  if (await categoryMissing(v.appliesToCategory)) return { ok: false, error: 'Choose a category from the list.' }
   try {
     return await db.$transaction(async (tx) => {
       // Locked, as checkout locks it, so a use cannot land between check and save.
@@ -153,7 +174,7 @@ export async function updateCoupon(id: string, v: CouponInput, actor: Actor): Pr
       const c = await tx.coupon.findUnique({ where: { id } })
       if (!c) return { ok: false as const, error: 'Coupon not found.' }
       if (c.timesUsed > 0 && LOCKED_AFTER_USE.some((k) => c[k] !== v[k])) {
-        return { ok: false as const, error: 'This coupon has been used, so its code and discount cannot change. End it and create a new one instead.' }
+        return { ok: false as const, error: 'This coupon has been used, so its code, discount and category cannot change. End it and create a new one instead.' }
       }
       if (v.usageLimitTotal !== null && v.usageLimitTotal < c.timesUsed) {
         return { ok: false as const, error: `It has already been used ${c.timesUsed} times; the total limit cannot be lower.` }

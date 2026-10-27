@@ -11,7 +11,7 @@ import { calculateOrderTotals, type PricingResult } from '../pricing'
 import type { CommerceSettings } from '../settings'
 import type { AddressInput } from './address'
 import { type CartLine, loadCartLines } from './cart'
-import { checkCoupon, type CouponCheck, normaliseCouponCode } from './coupons'
+import { checkCoupon, type CouponCheck, normaliseCouponCode, pricingLines } from './coupons'
 
 export type PaymentChoice = 'RAZORPAY' | 'COD'
 
@@ -43,13 +43,12 @@ export async function quoteCart(
   const buyable = lines.filter((l) => l.problem === null)
   if (buyable.length === 0) return { lines, hasProblems: lines.length > 0, coupon: null, totals: null }
 
-  const subtotalPaise = buyable.reduce((a, l) => a + l.unitPricePaise * l.quantity, 0)
   const coupon = opts.couponCode
-    ? await checkCoupon(db, opts.couponCode, { subtotalPaise, userId: opts.userId, email: opts.email })
+    ? await checkCoupon(db, opts.couponCode, { lines: buyable, userId: opts.userId, email: opts.email })
     : null
 
   const totals = calculateOrderTotals({
-    lines: buyable.map((l) => ({ unitPricePaise: l.unitPricePaise, quantity: l.quantity, gstRateBp: l.gstRateBp })),
+    lines: pricingLines(buyable, coupon),
     coupon: coupon?.ok ? coupon.pricing : null,
     shipping: { flatPaise: opts.settings.shippingFlatPaise, freeAbovePaise: opts.settings.shippingFreeAbovePaise },
     paymentMethod: opts.paymentMethod,
@@ -120,13 +119,12 @@ export async function placeOrder(
           }
         }
 
-        const subtotalPaise = lines.reduce((a, l) => a + l.unitPricePaise * l.quantity, 0)
         let coupon: Extract<CouponCheck, { ok: true }> | null = null
         const couponCode = input.couponCode ? normaliseCouponCode(input.couponCode) : null
         if (couponCode) {
           await tx.$queryRaw`SELECT id FROM "Coupon" WHERE code = ${couponCode} FOR UPDATE`
           const check = await checkCoupon(tx, couponCode, {
-            subtotalPaise,
+            lines,
             userId: input.userId,
             email: input.userId ? null : input.email,
           })
@@ -134,9 +132,8 @@ export async function placeOrder(
           coupon = check
         }
 
-        const pricingLines = lines.map((l) => ({ unitPricePaise: l.unitPricePaise, quantity: l.quantity, gstRateBp: l.gstRateBp }))
         const pricingBase = {
-          lines: pricingLines,
+          lines: pricingLines(lines, coupon),
           coupon: coupon?.pricing ?? null,
           shipping: { flatPaise: settings.shippingFlatPaise, freeAbovePaise: settings.shippingFreeAbovePaise },
           codFeePaise: settings.codFeePaise,

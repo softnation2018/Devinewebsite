@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Suspense } from 'react'
 import { requireCapability } from '@/server/admin/guard'
+import { listCategoryOptions } from '@/server/admin/products'
 import { AdminHeading } from '../../ui'
 import { CouponForm } from '../CouponForm'
 import { EMPTY_COUPON } from '../values'
@@ -26,5 +27,5 @@ export default function NewCouponPage() {
 
 async function NewCoupon() {
   await requireCapability('coupons.manage')
-  return <CouponForm values={EMPTY_COUPON} used={0} />
+  return <CouponForm values={EMPTY_COUPON} used={0} categories={await listCategoryOptions()} />
 }

@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { Suspense } from 'react'
 import { getCoupon } from '@/server/admin/coupons'
+import { listCategoryOptions } from '@/server/admin/products'
 import { requireCapability } from '@/server/admin/guard'
 import { AdminHeading } from '../../ui'
 import { CouponForm } from '../CouponForm'
@@ -22,7 +23,7 @@ export default function AdminCouponPage({ params, searchParams }: PageProps<'/ad
 
 async function CouponDetail({ id, created }: { id: string; created: boolean }) {
   await requireCapability('coupons.manage')
-  const coupon = await getCoupon(id)
+  const [coupon, categories] = await Promise.all([getCoupon(id), listCategoryOptions()])
   if (!coupon) notFound()
   return (
     <>
@@ -37,8 +38,7 @@ async function CouponDetail({ id, created }: { id: string; created: boolean }) {
           Coupon created.
         </p>
       )}
-      {coupon.appliesToCategory && <p className="mb-4 text-sm text-maroon-800">This coupon is limited to one category. Checkout does not accept category coupons yet, so customers cannot use it.</p>}
-      <CouponForm values={couponFormValues(coupon)} used={coupon.timesUsed} />
+      <CouponForm values={couponFormValues(coupon)} used={coupon.timesUsed} categories={categories} />
     </>
   )
 }
