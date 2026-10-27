@@ -101,17 +101,20 @@ export async function renderCustomerEmail(email: CustomerEmail): Promise<Rendere
  * after ten minutes. Failures are retried with a growing delay.
  */
 export async function runEmailJobs(limit = 20): Promise<{ sent: number; failed: number }> {
-  const claimed = await db.$queryRaw<{ id: string; payload: CustomerEmail; attempts: number; maxAttempts: number }[]>`
+  const rows = await db.$queryRaw<{ id: string; payload: CustomerEmail; attempts: number; maxAttempts: number; createdAt: Date }[]>`
     UPDATE "Job" SET status = 'RUNNING', "lockedAt" = now(), attempts = attempts + 1, "updatedAt" = now()
     WHERE id IN (
       SELECT id FROM "Job"
       WHERE kind LIKE 'email.%'
         AND ((status = 'QUEUED' AND "runAfter" <= now()) OR (status = 'RUNNING' AND "lockedAt" < now() - interval '10 minutes'))
-      ORDER BY "runAfter"
+      ORDER BY "runAfter", "createdAt"
       LIMIT ${limit}
       FOR UPDATE SKIP LOCKED
     )
-    RETURNING id, payload, attempts, "maxAttempts"`
+    RETURNING id, payload, attempts, "maxAttempts", "createdAt"`
+  // RETURNING has no order; send in the order things happened, so
+  // "on its way" never arrives after "delivered".
+  const claimed = rows.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime() || a.id.localeCompare(b.id))
 
   let sent = 0
   let failed = 0
