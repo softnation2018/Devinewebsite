@@ -164,6 +164,7 @@ export type CartLine = {
   variantId: string | null
   slug: string
   name: string
+  categoryId: string | null
   variantName: string | null
   sku: string
   imageKey: string | null
@@ -191,6 +192,7 @@ export async function loadCartLines(cartId: string, client: Tx | typeof db = db)
         select: {
           slug: true,
           name: true,
+          categoryId: true,
           sku: true,
           status: true,
           isDemo: true,
@@ -236,6 +238,7 @@ export async function loadCartLines(cartId: string, client: Tx | typeof db = db)
       variantId: i.variantId,
       slug: p.slug,
       name: p.name,
+      categoryId: p.categoryId,
       variantName: v?.name ?? null,
       sku: v?.sku ?? p.sku,
       imageKey: p.images[0]?.key ?? null,

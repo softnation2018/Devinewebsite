@@ -16,6 +16,7 @@ export const EMPTY_COUPON: CouponFormValues = {
   usageLimitPerUser: '1',
   startsAt: '',
   endsAt: '',
+  appliesToCategory: '',
   isActive: true,
 }
 
@@ -35,6 +36,7 @@ export function couponFormValues(c: Coupon): CouponFormValues {
     usageLimitPerUser: String(c.usageLimitPerUser),
     startsAt: toIstLocal(c.startsAt),
     endsAt: toIstLocal(c.endsAt),
+    appliesToCategory: c.appliesToCategory ?? '',
     isActive: c.isActive,
   }
 }

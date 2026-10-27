@@ -52,13 +52,12 @@ export async function applyCouponAction(_prev: CartActionState, formData: FormDa
   if (!code.trim()) return { error: 'Enter a code.' }
 
   const lines = (await loadCartLines(cartId)).filter((l) => l.problem === null)
-  const subtotalPaise = lines.reduce((a, l) => a + l.unitPricePaise * l.quantity, 0)
   const user = await getCurrentUser()
-  const check = await checkCoupon(db, code, { subtotalPaise, userId: user?.id ?? null, email: null })
+  const check = await checkCoupon(db, code, { lines, userId: user?.id ?? null, email: null })
   if (!check.ok) return { error: check.message }
   await setCartCoupon(cartId, check.id)
   refresh()
-  return { message: `Code ${check.code} applied.` }
+  return { message: check.categoryName ? `Code ${check.code} applied to ${check.categoryName} items.` : `Code ${check.code} applied.` }
 }
 
 export async function removeCouponAction(): Promise<void> {

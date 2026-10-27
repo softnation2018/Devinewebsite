@@ -6,6 +6,8 @@ export type PricingLine = {
   quantity: number
   /** GST rate in basis points: 1200 = 12% */
   gstRateBp: number
+  /** False when the coupon is limited to other categories. Default true. */
+  couponEligible?: boolean
 }
 
 export type PricingCoupon =
@@ -39,7 +41,7 @@ export type PricingResult = {
   taxPaise: number
   totalPaise: number
   lineTaxes: LineTax[]
-  couponRejected: 'BELOW_MINIMUM' | null
+  couponRejected: 'BELOW_MINIMUM' | 'NO_ELIGIBLE_ITEMS' | null
 }
 
 export class PricingError extends Error {}
@@ -65,6 +67,9 @@ export function calculateOrderTotals(input: PricingInput): PricingResult {
 
   const lineGross = input.lines.map((l) => l.unitPricePaise * l.quantity)
   const subtotalPaise = lineGross.reduce((a, b) => a + b, 0)
+  const eligible = input.lines.map((l) => l.couponEligible !== false)
+  // A category coupon counts, and discounts, only the items it covers.
+  const eligibleSubtotal = lineGross.reduce((a, g, i) => (eligible[i] ? a + g : a), 0)
 
   let discountPaise = 0
   let freeShipping = false
@@ -72,10 +77,12 @@ export function calculateOrderTotals(input: PricingInput): PricingResult {
   const coupon = input.coupon
 
   if (coupon) {
-    if (subtotalPaise < coupon.minOrderPaise) {
+    if (eligibleSubtotal === 0) {
+      couponRejected = 'NO_ELIGIBLE_ITEMS'
+    } else if (eligibleSubtotal < coupon.minOrderPaise) {
       couponRejected = 'BELOW_MINIMUM'
     } else if (coupon.type === 'PERCENTAGE') {
-      discountPaise = Math.floor((subtotalPaise * coupon.valueBp) / 10_000)
+      discountPaise = Math.floor((eligibleSubtotal * coupon.valueBp) / 10_000)
       if (coupon.maxDiscountPaise !== null) {
         discountPaise = Math.min(discountPaise, coupon.maxDiscountPaise)
       }
@@ -85,7 +92,7 @@ export function calculateOrderTotals(input: PricingInput): PricingResult {
       freeShipping = true
     }
   }
-  discountPaise = Math.min(discountPaise, subtotalPaise)
+  discountPaise = Math.min(discountPaise, eligibleSubtotal)
 
   const afterDiscount = subtotalPaise - discountPaise
   const qualifiesForFree =
@@ -94,7 +101,7 @@ export function calculateOrderTotals(input: PricingInput): PricingResult {
 
   const codFeePaise = input.paymentMethod === 'COD' ? input.codFeePaise : 0
 
-  const lineTaxes = extractInclusiveGst(input.lines, lineGross, discountPaise)
+  const lineTaxes = extractInclusiveGst(input.lines, lineGross, eligible, discountPaise)
   const taxPaise = lineTaxes.reduce((a, t) => a + t.taxPaise, 0)
 
   return {
@@ -109,20 +116,23 @@ export function calculateOrderTotals(input: PricingInput): PricingResult {
   }
 }
 
-// Spreads the discount across lines in proportion to their value, with the
-// rounding remainder on the last line so the parts always sum to the whole,
-// then splits each discounted line into taxable value and the GST inside it.
-function extractInclusiveGst(lines: PricingLine[], gross: number[], discountPaise: number): LineTax[] {
-  const subtotal = gross.reduce((a, b) => a + b, 0)
+// Spreads the discount across the lines it applies to, in proportion to
+// their value, with the rounding remainder on the last such line so the
+// parts always sum to the whole, then splits each discounted line into
+// taxable value and the GST inside it.
+function extractInclusiveGst(lines: PricingLine[], gross: number[], eligible: boolean[], discountPaise: number): LineTax[] {
+  const base = gross.reduce((a, g, i) => (eligible[i] ? a + g : a), 0)
+  const lastEligible = eligible.lastIndexOf(true)
   let allocated = 0
 
   return lines.map((line, i) => {
-    const isLast = i === lines.length - 1
-    const share = isLast
-      ? discountPaise - allocated
-      : subtotal === 0
-        ? 0
-        : Math.floor((discountPaise * gross[i]) / subtotal)
+    const share = !eligible[i]
+      ? 0
+      : i === lastEligible
+        ? discountPaise - allocated
+        : base === 0
+          ? 0
+          : Math.floor((discountPaise * gross[i]) / base)
     allocated += share
 
     const net = gross[i] - share

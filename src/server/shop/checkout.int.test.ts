@@ -202,6 +202,35 @@ describe('placing an order', () => {
     expect((await db.order.findUniqueOrThrow({ where: { id: ok.orderId } })).discountPaise).toBe(10_000)
   })
 
+  it('applies a category coupon only to items in that category or its sub-categories', async () => {
+    const malas = await db.category.create({ data: { slug: `${tag}-malas`, name: 'Malas' } })
+    const tulsi = await db.category.create({ data: { slug: `${tag}-tulsi`, name: 'Tulsi Malas', parentId: malas.id } })
+    const other = await db.category.create({ data: { slug: `${tag}-other`, name: 'Incense' } })
+    try {
+      const mala = await product(5, 60_000, { categoryId: tulsi.id })
+      const incense = await product(5, 40_000, { categoryId: other.id })
+      const coupon = await db.coupon.create({ data: { code: `${tag.toUpperCase()}-CAT`, type: 'PERCENTAGE', valueBp: 1_000, minOrderPaise: 50_000, appliesToCategory: malas.id } })
+
+      // Only incense: refused, and the customer is told which items it is for.
+      const onlyIncense = await cartWith(incense.id, 2)
+      expect(await placeOrder(input(onlyIncense, { couponCode: coupon.code }), settings, false)).toMatchObject({ ok: false, reason: 'COUPON', message: expect.stringContaining('Malas') })
+
+      const cart = await cartWith(mala.id, 1)
+      await addToCart(cart, incense.id, null, 1)
+      const r = await placeOrder(input(cart, { couponCode: coupon.code, email: `${tag}-cat@example.test` }), settings, false)
+      expect(r.ok).toBe(true)
+      const order = await db.order.findFirstOrThrow({ where: { guestEmail: `${tag}-cat@example.test` } })
+      // 10% of the ₹600 mala only. ₹940 after discount is below free shipping, so shipping and the COD fee are added.
+      expect(order).toMatchObject({ subtotalPaise: 100_000, discountPaise: 6_000, shippingPaise: 7_900, totalPaise: 94_000 + 7_900 + 4_900 })
+    } finally {
+      await db.coupon.deleteMany({ where: { code: `${tag.toUpperCase()}-CAT` } })
+      await db.order.deleteMany({ where: { guestEmail: { startsWith: tag } } })
+      await db.cart.deleteMany({ where: { items: { some: { product: { sku: { startsWith: tag } } } } } })
+      await db.product.deleteMany({ where: { categoryId: { in: [tulsi.id, other.id] } } })
+      await db.category.deleteMany({ where: { slug: { startsWith: tag } } })
+    }
+  })
+
   it('limits a coupon per customer, guests included', async () => {
     const coupon = await db.coupon.create({ data: { code: `${tag.toUpperCase()}-PER`, type: 'PERCENTAGE', valueBp: 1_000 } })
     const p = await product(10, 50_000)

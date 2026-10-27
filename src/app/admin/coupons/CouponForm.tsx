@@ -17,6 +17,7 @@ export type CouponFormValues = {
   usageLimitPerUser: string
   startsAt: string
   endsAt: string
+  appliesToCategory: string
   isActive: boolean
 }
 
@@ -39,7 +40,7 @@ function Text({ name, label, value, hint, type = 'text', disabled, inputMode }: 
   )
 }
 
-export function CouponForm({ values, used }: { values: CouponFormValues; used: number }) {
+export function CouponForm({ values, used, categories }: { values: CouponFormValues; used: number; categories: { id: string; name: string }[] }) {
   const [state, action, pending] = useActionState<AdminState, FormData>(saveCouponAction, {})
   const [type, setType] = useState(values.type)
   const locked = used > 0
@@ -72,6 +73,25 @@ export function CouponForm({ values, used }: { values: CouponFormValues; used: n
         {type === 'PERCENTAGE' && <Text name="percent" label="Percentage off" value={v.percent} disabled={locked} inputMode="decimal" />}
         {type === 'FIXED' && <Text name="amount" label="Amount off (₹)" value={v.amount} disabled={locked} inputMode="decimal" />}
         {type === 'PERCENTAGE' && <Text name="maxDiscount" label="Largest discount (₹, optional)" value={v.maxDiscount} inputMode="decimal" />}
+        {type !== 'FREE_SHIPPING' && (
+          <div>
+            <label htmlFor="c-category" className="block text-sm font-medium">
+              Applies to
+            </label>
+            {locked && <input type="hidden" name="appliesToCategory" value={v.appliesToCategory} />}
+            <select id="c-category" name={locked ? undefined : 'appliesToCategory'} defaultValue={v.appliesToCategory} disabled={locked} className={input} aria-describedby="c-category-hint">
+              <option value="">The whole order</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  Only {c.name}
+                </option>
+              ))}
+            </select>
+            <p id="c-category-hint" className="mt-1 text-xs text-stone">
+              With a category, only those items (and its sub-categories) are discounted, and the minimum counts only them.
+            </p>
+          </div>
+        )}
         <Text name="minOrder" label="Minimum order (₹, optional)" value={v.minOrder} inputMode="decimal" />
         <Text name="usageLimitTotal" label="Total uses allowed (optional)" value={v.usageLimitTotal} inputMode="numeric" hint="Empty means no limit." />
         <Text name="usageLimitPerUser" label="Uses per customer" value={v.usageLimitPerUser} inputMode="numeric" />
