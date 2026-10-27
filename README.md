@@ -55,6 +55,14 @@ Where photos are kept is set by `MEDIA_STORAGE`:
 In production with neither set, photo uploads are switched off and the shop
 shows its "Photo coming soon" placeholder.
 
+## Pages, contact and search engines
+
+- **Policies** (privacy, terms, shipping, returns, cancellation) are edited by the owner in Admin → Pages. They stay as drafts until the text is complete and you tick that it has been reviewed. The shop does not write policies for you.
+- **Contact page** (`/contact`) stores every message in Admin → Messages and, if a support email is set in Admin → Settings, also emails it there. Email, phone, WhatsApp and hours appear only once you enter them in Settings. A WhatsApp chat button appears when the WhatsApp number is set.
+- **Newsletter** sign-up in the footer uses double opt-in: an address counts only after its owner confirms from the email. It needs `AUTH_SECRET`; without it the form is hidden.
+- **Google**: `/sitemap.xml` lists real (non-demo) products, categories and published policies. Every page asks search engines not to index the site until `ALLOW_INDEXING=true` is set on the live site (then redeploy).
+- **Analytics**: Google Analytics 4 and the Meta pixel load only when `NEXT_PUBLIC_GA_MEASUREMENT_ID` / `NEXT_PUBLIC_META_PIXEL_ID` are set. With them empty, no tracking script is added.
+
 ## Secrets
 
 Never commit real keys or passwords. `.env.example` lists every variable with

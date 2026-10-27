@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { cacheLife, cacheTag } from 'next/cache'
 import { notFound } from 'next/navigation'
 import { Suspense } from 'react'
+import { Markdown } from '@/components/Markdown'
 import { PageHeader } from '@/components/PageHeader'
 import { db } from '@/server/db'
 import { listPublishedLegalPages } from '@/server/catalog'
@@ -53,9 +54,7 @@ async function PolicyPageContent({ slug }: { slug: string }) {
   return (
     <>
       <PageHeader title={page.title} />
-      <div className="mx-auto max-w-3xl space-y-4 px-4 py-12 text-base leading-relaxed whitespace-pre-line sm:px-6">
-        {page.bodyMarkdown.replace(/^#.*\n+/, '')}
-      </div>
+      <Markdown source={page.bodyMarkdown.replace(/^#\s.*\n+/, '')} className="mx-auto max-w-3xl px-4 py-12 text-base leading-relaxed sm:px-6" />
     </>
   )
 }

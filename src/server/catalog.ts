@@ -142,3 +142,17 @@ export async function listPublishedLegalPages() {
 export function availableStock(inventory: { onHand: number; reserved: number } | null): number {
   return inventory ? Math.max(0, inventory.onHand - inventory.reserved) : 0
 }
+
+/** Everything the sitemap lists. Demo products are left out: they are not real stock. */
+export async function listSitemapEntries() {
+  'use cache'
+  cacheLife('minutes')
+  cacheTag('catalog')
+  cacheTag('legal')
+  const [categories, products, pages] = await Promise.all([
+    db.category.findMany({ where: { isPublished: true }, select: { slug: true, updatedAt: true } }),
+    db.product.findMany({ where: { ...published, isDemo: false }, select: { slug: true, updatedAt: true } }),
+    db.legalPage.findMany({ where: { isPublished: true }, select: { slug: true, updatedAt: true } }),
+  ])
+  return { categories, products, pages }
+}

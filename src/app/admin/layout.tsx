@@ -24,8 +24,10 @@ async function AdminShell({ children }: { children: React.ReactNode }) {
   const links = [
     { href: '/admin', label: 'Dashboard', show: true },
     { href: '/admin/orders', label: 'Orders', show: can(user.role, 'orders.view') },
+    { href: '/admin/messages', label: 'Messages', show: can(user.role, 'orders.view') },
     { href: '/admin/products', label: 'Products', show: can(user.role, 'products.view') },
     { href: '/admin/coupons', label: 'Coupons', show: can(user.role, 'coupons.manage') },
+    { href: '/admin/pages', label: 'Pages', show: can(user.role, 'content.edit') },
     { href: '/admin/settings', label: 'Settings', show: can(user.role, 'settings.edit') },
   ]
   return (
