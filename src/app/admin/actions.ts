@@ -12,6 +12,7 @@ import { addProductImage, moveProductImage, removeProductImage, setImageAlt } fr
 import { cancelOrder, setAdminNote, setOrderStatus } from '@/server/admin/orders'
 import { adjustStock, createProduct, MANUAL_STOCK_REASONS, type ManualStockReason, parseProductForm, updateProduct } from '@/server/admin/products'
 import { parseSettingInput, saveSetting } from '@/server/admin/settings'
+import { createVariant, parseVariantForm, updateVariant } from '@/server/admin/variants'
 import { pageSchema, saveLegalPage } from '@/server/admin/pages'
 import { INQUIRY_STATUSES, updateInquiry } from '@/server/admin/inquiries'
 import { moderateReview } from '@/server/admin/reviews'
@@ -105,19 +106,36 @@ export async function adjustStockAction(_prev: AdminState, formData: FormData): 
   const user = await requireCapability('stock.adjust')
   const parsed = z
     .object({
-      productId: id,
+      productId: id.optional(),
+      variantId: id.optional(),
       delta: z.string().regex(/^[+-]?\d{1,6}$/, 'Enter a whole number, for example 10 or -2.').transform(Number),
       reason: z.enum(Object.keys(MANUAL_STOCK_REASONS) as [ManualStockReason, ...ManualStockReason[]]),
       note: z.string().max(300),
     })
     .safeParse(Object.fromEntries(formData))
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? 'Invalid request.' }
-  const { productId, delta, reason, note } = parsed.data
-  const r = await adjustStock(productId, delta, reason, note, { id: user.id, ip: await clientIp() })
+  const { productId, variantId, delta, reason, note } = parsed.data
+  const target = variantId ? { variantId } : productId ? { productId } : null
+  if (!target) return { error: 'Invalid request.' }
+  const r = await adjustStock(target, delta, reason, note, { id: user.id, ip: await clientIp() })
   if (!r.ok) return { error: r.error }
   updateTag('catalog')
   refresh()
   return { message: `Stock updated. ${r.onHand} now on hand.` }
+}
+
+export async function saveVariantAction(_prev: AdminState, formData: FormData): Promise<AdminState> {
+  const user = await requireCapability('products.edit')
+  const ids = z.object({ productId: id, variantId: id.optional() }).safeParse({ productId: formData.get('productId'), variantId: formData.get('variantId') || undefined })
+  if (!ids.success) return { error: 'Invalid request.' }
+  const parsed = parseVariantForm(formData)
+  if (!parsed.ok) return { error: parsed.error }
+  const actor = { id: user.id, ip: await clientIp() }
+  const r = ids.data.variantId ? await updateVariant(ids.data.variantId, parsed.value, actor) : await createVariant(ids.data.productId, parsed.value, actor)
+  if (!r.ok) return { error: r.error }
+  updateTag('catalog')
+  refresh()
+  return { message: ids.data.variantId ? 'Option saved.' : 'Option added. Add its stock below.' }
 }
 
 export async function saveCouponAction(_prev: AdminState, formData: FormData): Promise<AdminState> {

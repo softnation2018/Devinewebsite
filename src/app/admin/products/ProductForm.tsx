@@ -185,16 +185,18 @@ export function ProductForm({
   )
 }
 
-export function StockForm({ productId, reasons }: { productId: string; reasons: Record<string, string> }) {
+export function StockForm({ productId, variantId, reasons }: { productId?: string; variantId?: string; reasons: Record<string, string> }) {
   const [state, action] = useActionState<AdminState, FormData>(adjustStockAction, {})
+  // Several stock forms can share a page (one per option), so ids must differ.
+  const p = `s-${variantId ?? productId}`
   return (
     <form action={action} className="space-y-3">
-      <input type="hidden" name="productId" value={productId} />
+      {variantId ? <input type="hidden" name="variantId" value={variantId} /> : <input type="hidden" name="productId" value={productId} />}
       <div>
-        <label htmlFor="s-reason" className="block text-sm font-medium">
+        <label htmlFor={`${p}-reason`} className="block text-sm font-medium">
           What happened
         </label>
-        <select id="s-reason" name="reason" className={input}>
+        <select id={`${p}-reason`} name="reason" className={input}>
           {Object.entries(reasons).map(([value, label]) => (
             <option key={value} value={value}>
               {label}
@@ -203,16 +205,16 @@ export function StockForm({ productId, reasons }: { productId: string; reasons: 
         </select>
       </div>
       <div>
-        <label htmlFor="s-delta" className="block text-sm font-medium">
+        <label htmlFor={`${p}-delta`} className="block text-sm font-medium">
           Change in quantity
         </label>
-        <input id="s-delta" name="delta" required inputMode="numeric" placeholder="e.g. 10 or -2" className={input} />
+        <input id={`${p}-delta`} name="delta" required inputMode="numeric" placeholder="e.g. 10 or -2" className={input} />
       </div>
       <div>
-        <label htmlFor="s-note" className="block text-sm font-medium">
+        <label htmlFor={`${p}-note`} className="block text-sm font-medium">
           Note
         </label>
-        <input id="s-note" name="note" maxLength={300} placeholder="Supplier bill no., count date…" className={input} />
+        <input id={`${p}-note`} name="note" maxLength={300} placeholder="Supplier bill no., count date…" className={input} />
       </div>
       <button type="submit" className="rounded-sm border border-maroon-900 px-4 py-2 text-sm text-maroon-900 hover:bg-maroon-900 hover:text-ivory">
         Update stock

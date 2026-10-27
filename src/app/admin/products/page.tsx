@@ -82,7 +82,10 @@ async function Products({ status, q, page }: { status?: ProductStatus; q: string
               </thead>
               <tbody className="divide-y divide-gold-500/20">
                 {result.products.map((p) => {
-                  const available = p.inventory ? p.inventory.onHand - p.inventory.reserved : 0
+                  // A product sold in options counts the stock of its options.
+                  const rows = p.variants.length > 0 ? p.variants.map((v) => v.inventory) : [p.inventory]
+                  const available = rows.reduce((sum, i) => sum + (i ? i.onHand - i.reserved : 0), 0)
+                  const held = rows.reduce((sum, i) => sum + (i?.reserved ?? 0), 0)
                   return (
                     <tr key={p.id}>
                       <td className="px-3 py-2">
@@ -99,7 +102,8 @@ async function Products({ status, q, page }: { status?: ProductStatus; q: string
                       <td className="px-3 text-right">{formatPaise(p.pricePaise)}</td>
                       <td className={`px-3 text-right font-medium ${available <= p.lowStockThreshold ? 'text-maroon-700' : ''}`}>
                         {available}
-                        {p.inventory && p.inventory.reserved > 0 && <span className="block text-xs font-normal text-stone">{p.inventory.reserved} held for orders</span>}
+                        {p.variants.length > 0 && <span className="block text-xs font-normal text-stone">across {p.variants.length} options</span>}
+                        {held > 0 && <span className="block text-xs font-normal text-stone">{held} held for orders</span>}
                       </td>
                     </tr>
                   )

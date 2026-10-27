@@ -64,7 +64,11 @@ async function findPurchasable(tx: Tx, productId: string, variantId: string | nu
     if (!variant) return null
     inv = variant.inventory
   } else {
-    const product = await tx.product.findFirst({ where: { id: productId, status: 'PUBLISHED' }, select: { inventory: stock } })
+    // A product sold in options is bought by choosing one; it has no stock of its own.
+    const product = await tx.product.findFirst({
+      where: { id: productId, status: 'PUBLISHED', variants: { none: { isActive: true } } },
+      select: { inventory: stock },
+    })
     if (!product) return null
     inv = product.inventory
   }
@@ -196,6 +200,7 @@ export async function loadCartLines(cartId: string, client: Tx | typeof db = db)
           weightGrams: true,
           images: { select: { key: true }, orderBy: { position: 'asc' }, take: 1 },
           inventory: { select: { onHand: true, reserved: true } },
+          _count: { select: { variants: { where: { isActive: true } } } },
         },
       },
       variant: {
@@ -217,7 +222,7 @@ export async function loadCartLines(cartId: string, client: Tx | typeof db = db)
     const v = i.variant
     const inv = i.variantId ? v?.inventory : p.inventory
     const available = inv ? Math.max(0, inv.onHand - inv.reserved) : 0
-    const purchasable = p.status === 'PUBLISHED' && (!i.variantId || v?.isActive === true)
+    const purchasable = p.status === 'PUBLISHED' && (i.variantId ? v?.isActive === true : p._count.variants === 0)
     const problem: CartLine['problem'] = !purchasable
       ? 'UNAVAILABLE'
       : available === 0

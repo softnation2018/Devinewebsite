@@ -135,10 +135,12 @@ export async function moveReturn(
     if (move === 'RECEIVE') {
       const lines = ret.itemsJson as ReturnLine[]
       if (opts.restock) {
-        const items = await tx.orderItem.findMany({ where: { id: { in: lines.map((l) => l.orderItemId) } }, select: { id: true, productId: true } })
+        const items = await tx.orderItem.findMany({ where: { id: { in: lines.map((l) => l.orderItemId) } }, select: { id: true, productId: true, variantId: true } })
         for (const l of lines) {
-          const productId = items.find((i) => i.id === l.orderItemId)?.productId
-          const inv = productId ? await tx.inventory.findUnique({ where: { productId }, select: { id: true } }) : null
+          const item = items.find((i) => i.id === l.orderItemId)
+          // A variant has its own stock record; put the item back there.
+          const where = item?.variantId ? { variantId: item.variantId } : item?.productId ? { productId: item.productId } : null
+          const inv = where ? await tx.inventory.findUnique({ where, select: { id: true } }) : null
           if (!inv) continue
           await tx.inventory.update({ where: { id: inv.id }, data: { onHand: { increment: l.quantity } } })
           await tx.inventoryMovement.create({ data: { inventoryId: inv.id, delta: l.quantity, reason: 'RETURN', orderId: ret.orderId, actorUserId: actor.id, note: 'Return received in sellable condition' } })
