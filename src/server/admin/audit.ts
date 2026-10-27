@@ -1,7 +1,7 @@
 import type { Prisma } from '@/generated/prisma/client'
 
 export type AuditEntry = {
-  actorUserId: string
+  actorUserId: string | null // null: a guest customer acting on their own order
   action: string
   entityType: string
   entityId: string

@@ -3,6 +3,7 @@
 //   POST /v1/orders                 create an order
 //   GET  /v1/orders/{id}/payments   payments made against an order
 //   POST /v1/payments/{id}/capture  capture an authorised payment
+//   POST /v1/payments/{id}/refund   refund all or part of a captured payment
 // Keys come from the environment and never reach the browser, except the
 // public key id which Razorpay Checkout needs.
 
@@ -27,7 +28,22 @@ export interface RazorpayGateway {
   capturePayment(paymentId: string, amountPaise: number): Promise<RazorpayPayment>
 }
 
-export class RazorpayError extends Error {}
+/** status is Razorpay's HTTP status; it is absent when no answer came back (network, timeout). */
+export class RazorpayError extends Error {
+  constructor(
+    message: string,
+    readonly status?: number,
+  ) {
+    super(message)
+  }
+}
+
+export type RazorpayRefund = { id: string; payment_id: string; amount: number; status: 'pending' | 'processed' | 'failed' }
+
+/** Refunds, kept apart from RazorpayGateway so payment tests need not fake them. */
+export interface RazorpayRefunds {
+  refundPayment(paymentId: string, amountPaise: number, notes: Record<string, string>): Promise<RazorpayRefund>
+}
 
 function credentials() {
   const keyId = process.env.RAZORPAY_KEY_ID
@@ -50,18 +66,19 @@ async function call<T>(method: 'GET' | 'POST', path: string, body?: unknown): Pr
   })
   if (!res.ok) {
     // Razorpay error bodies describe the request, never our secret; log the code only.
-    throw new RazorpayError(`Razorpay ${method} ${path.split('/')[1]} failed: HTTP ${res.status}`)
+    throw new RazorpayError(`Razorpay ${method} ${path.split('/')[1]} failed: HTTP ${res.status}`, res.status)
   }
   return (await res.json()) as T
 }
 
-export const razorpay: RazorpayGateway = {
+export const razorpay: RazorpayGateway & RazorpayRefunds = {
   createOrder: ({ amountPaise, receipt, notes }) =>
     call('POST', '/orders', { amount: amountPaise, currency: 'INR', receipt: receipt.slice(0, 40), notes }),
   listOrderPayments: async (providerOrderId) =>
     (await call<{ items: RazorpayPayment[] }>('GET', `/orders/${encodeURIComponent(providerOrderId)}/payments`)).items,
   capturePayment: (paymentId, amountPaise) =>
     call('POST', `/payments/${encodeURIComponent(paymentId)}/capture`, { amount: amountPaise, currency: 'INR' }),
+  refundPayment: (paymentId, amountPaise, notes) => call('POST', `/payments/${encodeURIComponent(paymentId)}/refund`, { amount: amountPaise, notes }),
 }
 
 function safeEqualHex(expected: string, received: string): boolean {

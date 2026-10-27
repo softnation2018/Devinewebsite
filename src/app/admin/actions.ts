@@ -14,6 +14,9 @@ import { parseSettingInput, saveSetting } from '@/server/admin/settings'
 import { pageSchema, saveLegalPage } from '@/server/admin/pages'
 import { INQUIRY_STATUSES, updateInquiry } from '@/server/admin/inquiries'
 import { moderateReview } from '@/server/admin/reviews'
+import { MANUAL_METHODS, recordManualRefund, refundViaRazorpay, resolveStuckRefund } from '@/server/payments/refunds'
+import { razorpay } from '@/server/payments/razorpay'
+import { moveReturn } from '@/server/returns'
 import { parseIstLocal } from '@/server/admin/coupons'
 import {
   bookShipment,
@@ -265,4 +268,49 @@ export async function moderateReviewAction(_prev: AdminState, formData: FormData
   updateTag('reviews')
   refresh()
   return { message: 'Saved.' }
+}
+
+export async function refundAction(_prev: AdminState, formData: FormData): Promise<AdminState> {
+  const user = await requireCapability('refunds.issue')
+  const parsed = z
+    .object({ orderId: id, kind: z.enum(['razorpay', 'manual']), reason: z.string().max(300), method: z.enum(MANUAL_METHODS).optional(), reference: z.string().max(60).optional() })
+    .safeParse({
+      orderId: formData.get('orderId'),
+      kind: formData.get('kind'),
+      reason: String(formData.get('reason') ?? ''),
+      method: formData.get('method') ?? undefined,
+      reference: formData.get('reference') ?? undefined,
+    })
+  const amountPaise = parseRupeesToPaise(String(formData.get('amount') ?? ''))
+  if (!parsed.success) return { error: 'Invalid request.' }
+  if (amountPaise === null) return { error: 'Enter the amount in rupees, for example 499 or 499.50.' }
+  const actor = { id: user.id, ip: await clientIp() }
+  const r =
+    parsed.data.kind === 'razorpay'
+      ? await refundViaRazorpay(parsed.data.orderId, amountPaise, parsed.data.reason, actor, razorpay)
+      : await recordManualRefund(parsed.data.orderId, amountPaise, parsed.data.method ?? 'upi', parsed.data.reference ?? '', parsed.data.reason, actor)
+  refresh()
+  return r.ok ? { message: r.message } : { error: r.error }
+}
+
+export async function resolveRefundAction(_prev: AdminState, formData: FormData): Promise<AdminState> {
+  const user = await requireCapability('refunds.issue')
+  const parsed = z
+    .object({ refundId: id, outcome: z.enum(['COMPLETED', 'FAILED']), providerRefundId: z.string().max(60) })
+    .safeParse({ refundId: formData.get('refundId'), outcome: formData.get('outcome'), providerRefundId: String(formData.get('providerRefundId') ?? '') })
+  if (!parsed.success) return { error: 'Invalid request.' }
+  const r = await resolveStuckRefund(parsed.data.refundId, parsed.data.outcome, parsed.data.providerRefundId, { id: user.id, ip: await clientIp() })
+  refresh()
+  return r.ok ? { message: r.message } : { error: r.error }
+}
+
+export async function returnAction(_prev: AdminState, formData: FormData): Promise<AdminState> {
+  const user = await requireCapability('orders.update')
+  const parsed = z
+    .object({ returnId: id, move: z.enum(['APPROVE', 'REJECT', 'PICKUP', 'RECEIVE', 'CLOSE']), note: z.string().max(1000), awbNumber: z.string().max(60) })
+    .safeParse({ returnId: formData.get('returnId'), move: formData.get('move'), note: String(formData.get('note') ?? ''), awbNumber: String(formData.get('awbNumber') ?? '') })
+  if (!parsed.success) return { error: 'Invalid request.' }
+  const r = await moveReturn(parsed.data.returnId, parsed.data.move, { note: parsed.data.note, awbNumber: parsed.data.awbNumber, restock: formData.get('restock') === 'on' }, { id: user.id, ip: await clientIp() })
+  refresh()
+  return r.ok ? { message: 'Saved.' } : { error: r.error }
 }

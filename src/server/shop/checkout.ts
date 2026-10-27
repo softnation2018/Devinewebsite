@@ -278,6 +278,11 @@ export async function findOrderForViewer(orderNumber: string, viewer: { userId: 
       items: {
         select: { id: true, nameSnapshot: true, variantSnapshot: true, quantity: true, unitPricePaise: true, lineTotalPaise: true },
       },
+      refunds: {
+        where: { status: { not: 'FAILED' } },
+        orderBy: { createdAt: 'asc' },
+        select: { id: true, amountPaise: true, status: true, completedAt: true },
+      },
       // Only booked parcels, and only what the customer needs to follow one.
       shipments: {
         where: { status: { notIn: ['DRAFT', 'REQUESTED', 'FAILED', 'CANCELLED'] }, awbNumber: { not: null } },

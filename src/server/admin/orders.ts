@@ -92,29 +92,46 @@ const CANCELLABLE: OrderStatus[] = ['PENDING', 'CONFIRMED', 'PROCESSING']
 export async function cancelOrder(orderId: string, reason: string, actor: { id: string; ip: string | null }): Promise<StaffResult> {
   const why = reason.trim().slice(0, 300)
   if (!why) return { ok: false, error: 'Please give a reason.' }
-  return db.$transaction(async (tx) => {
-    const order = await tx.order.findUnique({ where: { id: orderId }, select: { status: true, paymentStatus: true, adminNote: true } })
-    if (!order) return { ok: false, error: 'Order not found.' }
-    if (!CANCELLABLE.includes(order.status)) return { ok: false, error: `A ${order.status.toLowerCase()} order cannot be cancelled here.` }
-    const shipment = await tx.shipment.findFirst({ where: { orderId, status: { notIn: ['CANCELLED', 'FAILED'] } }, select: { id: true } })
-    if (shipment) return { ok: false, error: 'This order has a courier booking. Cancel the shipment first.' }
+  return db.$transaction((tx) => cancelOrderInTx(tx, orderId, CANCELLABLE, why, { id: actor.id, ip: actor.ip, by: 'staff' }))
+}
 
-    const paid = order.paymentStatus === 'PAID'
-    const { count } = await tx.order.updateMany({
-      where: { id: orderId, status: order.status },
-      data: {
-        status: 'CANCELLED',
-        cancelledAt: new Date(),
-        cancelReason: why,
-        ...(paid ? { adminNote: [order.adminNote, 'Cancelled after payment: refund still to be issued.'].filter(Boolean).join('\n') } : {}),
-      },
-    })
-    if (count === 0) return { ok: false, error: 'The order changed meanwhile. Reload and try again.' }
-    await releaseOrderReservations(tx, orderId, `Released: cancelled by staff (${why.slice(0, 80)})`)
-    await tx.payment.updateMany({ where: { orderId, status: 'PENDING' }, data: { status: 'FAILED', failureReason: 'Order cancelled' } })
-    await recordAudit(tx, { actorUserId: actor.id, ipAddress: actor.ip, action: 'order.cancel', entityType: 'Order', entityId: orderId, before: { status: order.status }, after: { status: 'CANCELLED', reason: why } })
-    return { ok: true }
+/** Shared by staff and customer cancellation. `allowed` lists the statuses this caller may cancel from. */
+export async function cancelOrderInTx(
+  tx: Prisma.TransactionClient,
+  orderId: string,
+  allowed: OrderStatus[],
+  why: string,
+  actor: { id: string | null; ip: string | null; by: 'staff' | 'customer' },
+): Promise<StaffResult> {
+  const order = await tx.order.findUnique({ where: { id: orderId }, select: { status: true, paymentStatus: true, adminNote: true } })
+  if (!order) return { ok: false, error: 'Order not found.' }
+  if (!allowed.includes(order.status)) return { ok: false, error: `A ${order.status.toLowerCase()} order cannot be cancelled here.` }
+  const shipment = await tx.shipment.findFirst({ where: { orderId, status: { notIn: ['CANCELLED', 'FAILED'] } }, select: { id: true } })
+  if (shipment) return { ok: false, error: actor.by === 'staff' ? 'This order has a courier booking. Cancel the shipment first.' : 'This order has already been handed to the courier.' }
+
+  const paid = order.paymentStatus === 'PAID'
+  const { count } = await tx.order.updateMany({
+    where: { id: orderId, status: order.status },
+    data: {
+      status: 'CANCELLED',
+      cancelledAt: new Date(),
+      cancelReason: actor.by === 'customer' ? `Cancelled by customer: ${why}` : why,
+      ...(paid ? { adminNote: [order.adminNote, 'Cancelled after payment: refund still to be issued.'].filter(Boolean).join('\n') } : {}),
+    },
   })
+  if (count === 0) return { ok: false, error: 'The order changed meanwhile. Reload and try again.' }
+  await releaseOrderReservations(tx, orderId, `Released: cancelled by ${actor.by} (${why.slice(0, 80)})`)
+  await tx.payment.updateMany({ where: { orderId, status: 'PENDING' }, data: { status: 'FAILED', failureReason: 'Order cancelled' } })
+  await recordAudit(tx, {
+    actorUserId: actor.id,
+    ipAddress: actor.ip,
+    action: actor.by === 'customer' ? 'order.cancel.customer' : 'order.cancel',
+    entityType: 'Order',
+    entityId: orderId,
+    before: { status: order.status },
+    after: { status: 'CANCELLED', reason: why },
+  })
+  return { ok: true }
 }
 
 export async function setAdminNote(orderId: string, note: string, actor: { id: string; ip: string | null }): Promise<StaffResult> {
