@@ -99,6 +99,12 @@ async function Dashboard({ welcome, reset }: { welcome: boolean; reset: boolean 
         )}
       </section>
 
+      <p className="text-sm">
+        <Link href="/account/wishlist" className="text-maroon-800 underline underline-offset-2">
+          My wishlist
+        </Link>
+      </p>
+
       <section aria-labelledby="addresses-heading" className="rounded-sm border border-gold-500/30 bg-white p-6">
         <h2 id="addresses-heading" className="font-serif text-xl text-maroon-900">
           Saved addresses
