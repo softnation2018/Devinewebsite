@@ -15,8 +15,9 @@ echo "[start] applying database migrations"
 npx prisma migrate deploy
 
 # A brand-new database gets categories, settings, policy drafts and the
-# owner account once. No demo products, and later starts change nothing.
-SEED_ONLY_IF_EMPTY=true SEED_DEMO_PRODUCTS=false npx prisma db seed
+# owner account once, and later starts change nothing. Demo products only
+# when SHOW_DEMO_PRODUCTS=true (a preview server); never on the real shop.
+SEED_ONLY_IF_EMPTY=true SEED_DEMO_PRODUCTS="${SHOW_DEMO_PRODUCTS:-false}" npx prisma db seed
 
 if [ ! -f .next/BUILD_ID ]; then
   echo "[start] building the shop (first start of this image, takes a few minutes)"
