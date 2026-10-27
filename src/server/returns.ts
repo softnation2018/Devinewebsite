@@ -2,6 +2,7 @@ import 'server-only'
 import type { Prisma, ReturnStatus } from '@/generated/prisma/client'
 import { recordAudit } from './admin/audit'
 import { db } from './db'
+import { queueCustomerEmail } from './notifications'
 
 // Returns. The customer asks; staff approve or decline, arrange the pickup
 // and record when the parcel arrives. Money goes back only through the
@@ -152,6 +153,7 @@ export async function moveReturn(
       if (back >= (ordered._sum.quantity ?? 0)) await tx.order.update({ where: { id: ret.orderId }, data: { status: 'RETURNED' } })
     }
 
+    if (move !== 'CLOSE') await queueCustomerEmail(tx, { kind: 'return_update', orderId: ret.orderId, returnId })
     await recordAudit(tx, {
       actorUserId: actor.id,
       ipAddress: actor.ip,

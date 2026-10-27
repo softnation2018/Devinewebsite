@@ -56,7 +56,7 @@ On the live address, with Razorpay **test** keys:
 - [ ] Contact form: the message appears in Admin → Messages and at the support email.
 - [ ] Newsletter: the confirmation email arrives and the link works.
 - [ ] Check `https://YOUR-DOMAIN/api/health` answers `{"ok":true}`.
-- [ ] On Vercel, check Project → Cron Jobs shows the two jobs succeeding.
+- [ ] On Vercel, check Project → Cron Jobs shows the three jobs succeeding (unpaid orders, tracking, customer emails).
 - [ ] Backups: Neon's restore window, or last night's file in `backups/`. Do one practice restore.
 
 ## 5. Go live
