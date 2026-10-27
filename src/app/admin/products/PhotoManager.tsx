@@ -1,57 +1,39 @@
 'use client'
 
-import { startTransition, useActionState, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { useActionState, useRef, useState } from 'react'
 import { FormAlert } from '@/components/forms'
-import { type AdminState, imageAction, uploadProductImageAction } from '../actions'
+import { type AdminState, imageAction } from '../actions'
+import { photoFiles, uploadPhotos } from './photo-upload'
 
 export type PhotoView = { id: string; url: string; alt: string }
 
-/**
- * Redraws the photo at a sensible size. Besides making uploads quick on a
- * phone, this drops the camera's hidden metadata (such as GPS location).
- */
-async function shrink(file: File, maxEdge: number, quality: number): Promise<Blob> {
-  const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' })
-  const scale = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height))
-  const canvas = document.createElement('canvas')
-  canvas.width = Math.round(bitmap.width * scale)
-  canvas.height = Math.round(bitmap.height * scale)
-  canvas.getContext('2d')!.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
-  bitmap.close()
-  const encode = (type: string) => new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, type, quality))
-  // Some browsers cannot write WebP and quietly return PNG; use JPEG there.
-  const webp = await encode('image/webp')
-  if (webp && webp.type === 'image/webp') return webp
-  const jpeg = await encode('image/jpeg')
-  if (!jpeg) throw new Error('Could not read this photo.')
-  return jpeg
-}
-
 export function PhotoManager({ productId, photos, max }: { productId: string; photos: PhotoView[]; max: number }) {
-  const [state, upload, uploading] = useActionState<AdminState, FormData>(uploadProductImageAction, {})
+  const router = useRouter()
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
   const [problem, setProblem] = useState<string>()
+  const [message, setMessage] = useState<string>()
   const fileRef = useRef<HTMLInputElement>(null)
   const altRef = useRef<HTMLInputElement>(null)
+  const room = max - photos.length
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const form = e.currentTarget
     setProblem(undefined)
-    const file = fileRef.current?.files?.[0]
-    if (!file) return setProblem('Choose a photo first.')
-    if (!file.type.startsWith('image/')) return setProblem('That file is not a photo.')
-    try {
-      const [large, thumb] = await Promise.all([shrink(file, 1600, 0.85), shrink(file, 600, 0.8)])
-      const data = new FormData()
-      data.set('productId', productId)
-      data.set('alt', altRef.current?.value ?? '')
-      data.set('large', large, 'large')
-      data.set('thumb', thumb, 'thumb')
-      startTransition(() => upload(data))
-      form.reset()
-    } catch {
-      setProblem('This photo could not be read. Try a JPEG or PNG.')
-    }
+    setMessage(undefined)
+    const files = photoFiles(fileRef.current?.files)
+    if (files.length === 0) return setProblem('Choose one or more photos first.')
+    if (files.length > room) return setProblem(`You can add ${room} more photo${room === 1 ? '' : 's'} to this product. Choose fewer.`)
+    const alt = altRef.current?.value.trim() ?? ''
+    setProgress({ done: 0, total: files.length })
+    const failed = await uploadPhotos(productId, files, () => alt, (done) => setProgress({ done, total: files.length }))
+    setProgress(null)
+    form.reset()
+    router.refresh()
+    const ok = files.length - failed.length
+    if (ok) setMessage(`${ok} photo${ok === 1 ? '' : 's'} added.`)
+    if (failed.length) setProblem(failed.join(' '))
   }
 
   return (
@@ -68,18 +50,18 @@ export function PhotoManager({ productId, photos, max }: { productId: string; ph
       {photos.length < max ? (
         <form onSubmit={onSubmit} className="space-y-2 border-t border-gold-500/20 pt-4">
           <label htmlFor="photo-file" className="block text-sm font-medium">
-            Add a photo
+            Add photos (up to {room} more; choose several at once)
           </label>
-          <input id="photo-file" ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="block w-full text-sm" />
+          <input id="photo-file" ref={fileRef} type="file" multiple accept="image/jpeg,image/png,image/webp" className="block w-full text-sm" />
           <label htmlFor="photo-alt" className="block text-sm font-medium">
-            Short description of the photo
+            Short description (used for every photo in this upload)
           </label>
           <input id="photo-alt" ref={altRef} maxLength={200} placeholder="e.g. Five-faced rudraksha bead, front view" className="w-full rounded-sm border border-stone/40 bg-white px-3 py-2 text-sm" />
           <p className="text-xs text-stone">Use your own photos of the actual product. Helps people using screen readers, and search engines.</p>
-          <button type="submit" disabled={uploading} className="rounded-sm border border-maroon-900 px-4 py-2 text-sm text-maroon-900 hover:bg-maroon-900 hover:text-ivory disabled:opacity-60">
-            {uploading ? 'Uploading…' : 'Upload photo'}
+          <button type="submit" disabled={!!progress} className="rounded-sm border border-maroon-900 px-4 py-2 text-sm text-maroon-900 hover:bg-maroon-900 hover:text-ivory disabled:opacity-60">
+            {progress ? `Uploading ${progress.done + 1} of ${progress.total}…` : 'Upload photos'}
           </button>
-          <FormAlert error={problem ?? state.error} message={problem ? undefined : state.message} />
+          <FormAlert error={problem} message={message} />
         </form>
       ) : (
         <p className="text-xs text-stone">This product has the maximum of {max} photos.</p>

@@ -1,8 +1,10 @@
 'use client'
 
-import { startTransition, useActionState } from 'react'
+import { useRouter } from 'next/navigation'
+import { startTransition, useActionState, useEffect, useRef, useState } from 'react'
 import { FormAlert } from '@/components/forms'
 import { type AdminState, adjustStockAction, saveProductAction } from '../actions'
+import { photoFiles, uploadPhotos } from './photo-upload'
 
 export type ProductFormValues = {
   id: string | null
@@ -53,6 +55,9 @@ function Text({ name, label, value, hint, required, area, inputMode, maxLength }
   )
 }
 
+// Matches MAX_IMAGES_PER_PRODUCT on the server.
+const MAX_NEW_PHOTOS = 10
+
 export function ProductForm({
   values,
   categories,
@@ -68,13 +73,40 @@ export function ProductForm({
 }) {
   const [state, action, pending] = useActionState<AdminState, FormData>(saveProductAction, {})
   const v = values
+  const router = useRouter()
+  // A new product's photos wait here until the product exists, then upload.
+  const [photos, setPhotos] = useState<{ file: File; url: string }[]>([])
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
+  const [photoProblem, setPhotoProblem] = useState<string>()
+  const started = useRef<string | null>(null)
+
+  useEffect(() => {
+    const id = state.createdId
+    if (!id || started.current === id) return
+    started.current = id
+    const files = photos.map((p) => p.file)
+    const name = (document.getElementById('p-name') as HTMLInputElement | null)?.value ?? ''
+    setProgress({ done: 0, total: files.length })
+    uploadPhotos(id, files, (_f, i) => (i === 0 ? name : `${name}, photo ${i + 1}`), (done) => setProgress({ done, total: files.length })).then((failed) => {
+      if (failed.length) {
+        setProgress(null)
+        setPhotoProblem(`Product created, but ${failed.length} photo(s) did not upload: ${failed.join(' ')} You can add them on the product page.`)
+        return
+      }
+      router.push(`/admin/products/${id}?created=1`)
+    })
+  }, [state.createdId, photos, router])
+
   return (
     // Submitted by hand rather than through the action prop, so a rejected
     // save keeps everything typed instead of resetting the form.
     <form
       onSubmit={(e) => {
         e.preventDefault()
+        if (progress) return
         const data = new FormData(e.currentTarget)
+        data.delete('photos')
+        if (photos.length) data.set('withPhotos', '1')
         startTransition(() => action(data))
       }}
       className="space-y-8"
@@ -102,6 +134,42 @@ export function ProductForm({
         </div>
         <Text name="material" label="Material (optional)" value={v.material} maxLength={200} />
       </fieldset>
+
+      {!v.id && (
+        <fieldset className="space-y-3">
+          <legend className="mb-2 font-serif text-xl text-maroon-900">Photos</legend>
+          <label htmlFor="p-photos" className="block text-sm font-medium">
+            Choose up to {MAX_NEW_PHOTOS} photos (select several at once). The first one is the main photo.
+          </label>
+          <input
+            id="p-photos"
+            name="photos"
+            type="file"
+            multiple
+            accept="image/jpeg,image/png,image/webp"
+            className="block w-full text-sm"
+            onChange={(e) => {
+              photos.forEach((p) => URL.revokeObjectURL(p.url))
+              const files = photoFiles(e.currentTarget.files).slice(0, MAX_NEW_PHOTOS)
+              setPhotoProblem(e.currentTarget.files && e.currentTarget.files.length > MAX_NEW_PHOTOS ? `Only the first ${MAX_NEW_PHOTOS} photos will be added.` : undefined)
+              setPhotos(files.map((file) => ({ file, url: URL.createObjectURL(file) })))
+            }}
+          />
+          {photos.length > 0 && (
+            <ul className="flex flex-wrap gap-2">
+              {photos.map((p, i) => (
+                <li key={p.url} className="relative">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- local preview of a chosen file */}
+                  <img src={p.url} alt="" className="h-20 w-20 rounded-sm border border-gold-500/30 object-cover" />
+                  {i === 0 && <span className="absolute bottom-1 left-1 rounded-sm bg-gold-100 px-1 text-[10px]">Main</span>}
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="text-xs text-stone">Use your own photos of the actual product. You can add, remove or reorder photos later on the product page.</p>
+          {photoProblem && <p className="text-sm text-maroon-700">{photoProblem}</p>}
+        </fieldset>
+      )}
 
       <fieldset className="grid gap-4">
         <legend className="mb-2 font-serif text-xl text-maroon-900">Description</legend>
@@ -176,9 +244,9 @@ export function ProductForm({
       </fieldset>
 
       <div className="space-y-3">
-        <FormAlert error={state.error} message={state.message} />
-        <button type="submit" disabled={pending} className="rounded-sm bg-maroon-900 px-6 py-3 text-sm tracking-[0.12em] text-ivory uppercase hover:bg-maroon-800 disabled:opacity-60">
-          {pending ? 'Saving…' : v.id ? 'Save changes' : 'Create product'}
+        <FormAlert error={state.error} message={progress ? undefined : state.createdId ? undefined : state.message} />
+        <button type="submit" disabled={pending || !!progress} className="rounded-sm bg-maroon-900 px-6 py-3 text-sm tracking-[0.12em] text-ivory uppercase hover:bg-maroon-800 disabled:opacity-60">
+          {progress ? `Uploading photo ${Math.min(progress.done + 1, progress.total)} of ${progress.total}…` : pending ? 'Saving…' : v.id ? 'Save changes' : 'Create product'}
         </button>
       </div>
     </form>

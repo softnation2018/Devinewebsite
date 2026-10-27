@@ -11,7 +11,7 @@ import type { StaffResult } from './orders'
 
 type Actor = { id: string; ip: string | null }
 
-export const MAX_IMAGES_PER_PRODUCT = 8
+export const MAX_IMAGES_PER_PRODUCT = 10
 export const MAX_IMAGE_BYTES = 3 * 1024 * 1024
 export const MAX_THUMB_BYTES = 512 * 1024
 

@@ -40,7 +40,8 @@ function photoStore(): 'db' | 'local' | null {
   return null
 }
 
-async function put(key: string, bytes: Buffer) {
+async function put(key: string, file: Buffer) {
+  const bytes = Uint8Array.from(file)
   if (photoStore() === 'db') {
     await db.mediaObject.upsert({ where: { key }, create: { key, contentType: 'image/webp', bytes }, update: { bytes } })
   } else {

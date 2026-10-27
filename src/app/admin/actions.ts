@@ -32,7 +32,7 @@ import {
 } from '@/server/shipping/shipments'
 import { parseRupeesToPaise } from '@/lib/money'
 
-export type AdminState = { error?: string; message?: string }
+export type AdminState = { error?: string; message?: string; createdId?: string }
 
 /** Sends any customer emails a change just queued, after the response; the cron job is the fallback. */
 function sendQueuedEmails() {
@@ -93,6 +93,9 @@ export async function saveProductAction(_prev: AdminState, formData: FormData): 
     const r = await createProduct(parsed.value, actor)
     if (!r.ok) return { error: r.error }
     updateTag('catalog')
+    // With photos waiting in the browser, hand back the id so they can be
+    // uploaded before moving to the product page.
+    if (formData.get('withPhotos') === '1') return { message: 'Product created.', createdId: r.id }
     redirect(`/admin/products/${r.id}?created=1`)
   }
   const r = await updateProduct(productId, parsed.value, actor)
