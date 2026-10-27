@@ -12,7 +12,10 @@ Vercel Pro or your own server (see docs/self-hosting.md).
 4. Production branch: `main` (or `vercel-preview`).
 5. Redeploy.
 
-Owner sign-in: add `OWNER_EMAIL` and `OWNER_PASSWORD` (at least 10
+Owner sign-in: open `/account/setup-owner?token=<token>`, where the token is
+the base64url HMAC-SHA256 of `owner-setup:v1` keyed with `AUTH_SECRET`
+(`node -e "console.log(require('crypto').createHmac('sha256', process.env.AUTH_SECRET).update('owner-setup:v1').digest('base64url'))"`).
+The page works only until the first owner exists. Or add `OWNER_EMAIL` and `OWNER_PASSWORD` (at least 10
 characters) and redeploy. The build creates that owner account once, only
 while the shop has no owner. Sign in at /account/login, then delete
 `OWNER_PASSWORD` from the settings.
