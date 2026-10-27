@@ -90,8 +90,12 @@ export async function saveProductAction(_prev: AdminState, formData: FormData): 
   if (!parsed.ok) return { error: parsed.error }
   const actor = { id: user.id, ip: await clientIp(), canCost: can(user.role, 'products.cost') }
   if (!productId) {
+    const opening = String(formData.get('initialStock') ?? '').trim() || '0'
+    if (!/^\d{1,6}$/.test(opening)) return { error: 'Quantity in stock: enter a whole number, such as 0 or 25.' }
     const r = await createProduct(parsed.value, actor)
     if (!r.ok) return { error: r.error }
+    // Opening stock goes through the stock ledger like any other change.
+    if (Number(opening) > 0 && can(user.role, 'stock.adjust')) await adjustStock({ productId: r.id! }, Number(opening), 'PURCHASE', 'Opening stock', actor)
     updateTag('catalog')
     // With photos waiting in the browser, hand back the id so they can be
     // uploaded before moving to the product page.

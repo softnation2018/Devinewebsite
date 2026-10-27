@@ -31,7 +31,6 @@ async function NewProduct() {
   const categories = await listCategoryOptions()
   return (
     <>
-      <p className="mb-6 max-w-2xl text-sm text-stone">New products start with no stock. After creating it, add stock on the product page.</p>
       <ProductForm values={EMPTY_PRODUCT} categories={categories} gstRates={GST_RATES_BP} showCost={can(user.role, 'products.cost')} isDemo={false} />
     </>
   )

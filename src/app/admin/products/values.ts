@@ -27,7 +27,7 @@ export const EMPTY_PRODUCT: ProductFormValues = {
   seoDescription: '',
   returnEligible: true,
   isFeatured: false,
-  status: 'DRAFT',
+  status: 'PUBLISHED',
 }
 
 const rupees = (p: number | null) => (p === null ? '' : paiseToRupeeInput(p))

@@ -68,12 +68,18 @@ async function ProductDetail({ id, created }: { id: string; created: boolean }) 
       </AdminHeading>
       {created && (
         <p role="status" className="mb-6 rounded-sm border border-gold-500/50 bg-gold-100 px-4 py-3 text-sm">
-          Product created. Add stock below before putting it on sale.
+          Product saved. You can add more photos, options or stock below.
         </p>
       )}
 
       <div className="grid gap-8 lg:grid-cols-[1fr_20rem]">
         <section aria-label="Details">
+          {can(user.role, 'products.edit') && (
+            <section className="mb-6 rounded-sm border border-gold-500/30 bg-white p-5 shadow-sm">
+              <h2 className="mb-3 font-serif text-lg text-maroon-900">Media</h2>
+              <PhotoManager productId={product.id} photos={images.map((i) => ({ id: i.id, url: mediaUrl(thumbKey(i.key)), alt: i.alt ?? '' }))} max={MAX_IMAGES_PER_PRODUCT} />
+            </section>
+          )}
           {can(user.role, 'products.edit') ? (
             <ProductForm values={productFormValues(product, showCost)} categories={categories} gstRates={GST_RATES_BP} showCost={showCost} isDemo={product.isDemo} />
           ) : (
@@ -167,12 +173,6 @@ async function ProductDetail({ id, created }: { id: string; created: boolean }) 
         </section>
 
         <aside className="space-y-6">
-          {can(user.role, 'products.edit') && (
-            <section className="rounded-sm border border-gold-500/30 bg-white p-4">
-              <h2 className="mb-3 font-serif text-xl text-maroon-900">Photos</h2>
-              <PhotoManager productId={product.id} photos={images.map((i) => ({ id: i.id, url: mediaUrl(thumbKey(i.key)), alt: i.alt ?? '' }))} max={MAX_IMAGES_PER_PRODUCT} />
-            </section>
-          )}
           <section className="rounded-sm border border-gold-500/30 bg-white p-4">
             <h2 className="font-serif text-xl text-maroon-900">Stock</h2>
             {soldInOptions ? (
