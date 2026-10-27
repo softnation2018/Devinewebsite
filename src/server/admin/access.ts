@@ -17,6 +17,7 @@ export const CAPABILITIES = {
   'content.edit': 'OWNER',
   'audit.view': 'ADMIN',
   'reviews.moderate': 'STAFF',
+  'refunds.issue': 'ADMIN',
 } as const satisfies Record<string, UserRole>
 
 export type Capability = keyof typeof CAPABILITIES

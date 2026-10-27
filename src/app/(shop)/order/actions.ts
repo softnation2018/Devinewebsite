@@ -6,7 +6,9 @@ import { clientIp } from '@/server/auth/session'
 import { confirmCheckoutPayment, startOnlinePayment } from '@/server/payments/online'
 import { razorpay } from '@/server/payments/razorpay'
 import { consumeRateLimit } from '@/server/rate-limit'
-import { onlinePaymentAvailable } from '@/server/settings'
+import { getCancellationRule, getReturnWindowDays, onlinePaymentAvailable } from '@/server/settings'
+import { requestReturn, RETURN_REASONS, type ReturnReason } from '@/server/returns'
+import { cancelOwnOrder } from '@/server/shop/cancel'
 import { loadViewableOrder } from './viewer'
 
 export type StartPaymentResult =
@@ -62,4 +64,45 @@ export async function confirmPaymentAction(
   refresh()
   if (state === 'PAID' || state === 'PENDING' || state === 'FAILED') return { state }
   return { state: 'ERROR' }
+}
+
+export type CancelState = { error?: string; done?: boolean }
+
+export async function cancelOrderAction(_prev: CancelState, formData: FormData): Promise<CancelState> {
+  const parsed = ref.safeParse({ orderNumber: String(formData.get('orderNumber') ?? ''), key: (formData.get('key') as string | null) || null })
+  if (!parsed.success) return { error: 'Invalid request.' }
+  const limit = await consumeRateLimit(`cancel:ip:${await clientIp()}`, 10, 60 * 60)
+  if (!limit.allowed) return { error: 'Too many attempts. Please try again later.' }
+  const found = await loadViewableOrder(parsed.data.orderNumber, parsed.data.key)
+  if (!found) return { error: 'We could not find that order.' }
+  const r = await cancelOwnOrder(found.order.id, await getCancellationRule(), String(formData.get('reason') ?? ''), {
+    userId: found.user?.id ?? null,
+    ip: await clientIp(),
+  })
+  if (!r.ok) return { error: r.error }
+  refresh()
+  return { done: true }
+}
+
+export type ReturnState = { error?: string; done?: boolean }
+
+export async function requestReturnAction(_prev: ReturnState, formData: FormData): Promise<ReturnState> {
+  const parsed = ref.safeParse({ orderNumber: String(formData.get('orderNumber') ?? ''), key: (formData.get('key') as string | null) || null })
+  const reason = String(formData.get('reason') ?? '')
+  if (!parsed.success) return { error: 'Invalid request.' }
+  if (!(reason in RETURN_REASONS)) return { error: 'Choose a reason.' }
+  const limit = await consumeRateLimit(`return:ip:${await clientIp()}`, 10, 60 * 60)
+  if (!limit.allowed) return { error: 'Too many attempts. Please try again later.' }
+  const found = await loadViewableOrder(parsed.data.orderNumber, parsed.data.key)
+  if (!found) return { error: 'We could not find that order.' }
+  const lines = [...formData.entries()]
+    .filter(([k]) => k.startsWith('qty:'))
+    .map(([k, v]) => ({ orderItemId: k.slice(4, 44), quantity: Number(v) }))
+  const r = await requestReturn(found.order.id, await getReturnWindowDays(), { lines, reason: reason as ReturnReason, note: String(formData.get('note') ?? '') }, {
+    userId: found.user?.id ?? null,
+    ip: await clientIp(),
+  })
+  if (!r.ok) return { error: r.error }
+  refresh()
+  return { done: true }
 }

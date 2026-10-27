@@ -83,3 +83,23 @@ export function whatsappLink(number: string): string | null {
   if (digits.length >= 11 && digits.length <= 15) return `https://wa.me/${digits}`
   return null
 }
+
+export type CancellationRule = 'BEFORE_PROCESSING' | 'BEFORE_SHIPMENT' | 'NEVER'
+
+/** Until when customers may cancel themselves (Admin → Settings). Anything unexpected means "never". */
+export async function getCancellationRule(): Promise<CancellationRule> {
+  'use cache'
+  cacheLife('minutes')
+  cacheTag('settings')
+  const row = await db.storeSetting.findUnique({ where: { key: 'cancellation.allowedUntil' }, select: { value: true } })
+  return row?.value === 'BEFORE_PROCESSING' || row?.value === 'BEFORE_SHIPMENT' ? row.value : 'NEVER'
+}
+
+/** Days after delivery a customer may ask for a return (Admin → Settings). 0 or unset: no online return requests. */
+export async function getReturnWindowDays(): Promise<number> {
+  'use cache'
+  cacheLife('minutes')
+  cacheTag('settings')
+  const row = await db.storeSetting.findUnique({ where: { key: 'returns.windowDays' }, select: { value: true } })
+  return int(row?.value, 0)
+}

@@ -4,6 +4,7 @@
 // only prompts us to ask Razorpay; it is never proof by itself.
 
 import type { Prisma } from '@/generated/prisma/client'
+import { applyRefundWebhook } from './refunds'
 import { db } from '../db'
 import { type RazorpayGateway, type RazorpayPayment, verifyCheckoutSignature, verifyWebhookSignature } from './razorpay'
 
@@ -162,14 +163,17 @@ export async function handleRazorpayWebhook(
 ): Promise<WebhookOutcome> {
   if (!signature || !verifyWebhookSignature(rawBody, signature, webhookSecret)) return 'BAD_SIGNATURE'
 
-  let body: { event?: string; payload?: { payment?: { entity?: { order_id?: string | null } }; order?: { entity?: { id?: string } } } }
+  let body: {
+    event?: string
+    payload?: { payment?: { entity?: { order_id?: string | null } }; order?: { entity?: { id?: string } }; refund?: { entity?: { id?: string; status?: string } } }
+  }
   try {
     body = JSON.parse(rawBody)
   } catch {
     return 'IGNORED'
   }
   const eventType = String(body.event ?? 'unknown')
-  const providerEventId = eventId ?? `${eventType}:${body.payload?.payment?.entity?.order_id ?? 'none'}`
+  const providerEventId = eventId ?? `${eventType}:${body.payload?.refund?.entity?.id ?? body.payload?.payment?.entity?.order_id ?? 'none'}`
 
   // One row per Razorpay event. A redelivered event that was already
   // handled is acknowledged without doing anything twice.
@@ -180,6 +184,18 @@ export async function handleRazorpayWebhook(
     (await db.webhookEvent
       .create({ data: { provider: 'razorpay', providerEventId, eventType, signatureValid: true, payload: body as Prisma.InputJsonValue } })
       .catch(async () => db.webhookEvent.findUniqueOrThrow({ where: { provider_providerEventId: { provider: 'razorpay', providerEventId } } })))
+
+  const refund = body.payload?.refund?.entity
+  if ((eventType === 'refund.processed' || eventType === 'refund.failed') && refund?.id && refund.status) {
+    try {
+      const applied = await applyRefundWebhook(refund.id, refund.status)
+      await db.webhookEvent.update({ where: { id: event.id }, data: { status: applied ? 'PROCESSED' : 'IGNORED', processedAt: new Date(), error: null } })
+      return applied ? 'PROCESSED' : 'IGNORED'
+    } catch (e) {
+      await db.webhookEvent.update({ where: { id: event.id }, data: { status: 'FAILED', error: String(e).slice(0, 500) } })
+      throw e
+    }
+  }
 
   const providerOrderId = body.payload?.payment?.entity?.order_id ?? body.payload?.order?.entity?.id ?? null
   if (!HANDLED.has(eventType) || !providerOrderId) {

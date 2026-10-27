@@ -28,7 +28,22 @@ is simpler.)
 3. Secret: make up a long random value (for example the output of
    `openssl rand -hex 32`) and add it as `RAZORPAY_WEBHOOK_SECRET`.
 4. Tick these events: `payment.authorized`, `payment.captured`,
-   `payment.failed`, `order.paid`.
+   `payment.failed`, `order.paid`, `refund.processed`, `refund.failed`.
+
+## Refunds
+
+An Admin (or Owner) refunds an online order from its page in Admin → Orders.
+The shop asks Razorpay to refund the payment. The refund shows as **done**
+only when Razorpay reports it as processed, either straight away or later
+through the `refund.processed` webhook.
+
+If Razorpay gives no answer (for example a network error), the refund stays
+"in progress" and is **not** retried automatically. Look up the payment in
+the Razorpay dashboard, then record on the order page whether a refund
+exists. If it does, enter its `rfnd_…` id.
+
+COD orders are refunded by you, by UPI or bank transfer. Then record the
+transfer's reference number on the order page.
 
 ## 4. Unpaid-order clean-up
 

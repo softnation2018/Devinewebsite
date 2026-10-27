@@ -5,7 +5,11 @@ import { EmptyState } from '@/components/EmptyState'
 import { OrderSummary } from '@/components/OrderSummary'
 import { PageHeader } from '@/components/PageHeader'
 import { formatPaise } from '@/lib/money'
-import { onlinePaymentAvailable } from '@/server/settings'
+import { getCancellationRule, getReturnWindowDays, onlinePaymentAvailable } from '@/server/settings'
+import { RETURN_REASONS, RETURN_STATUS_LABEL, returnableItems, returnsForOrder } from '@/server/returns'
+import { ReturnRequest } from '../ReturnRequest'
+import { customerCancellable } from '@/server/shop/cancel'
+import { CancelOrder } from '../CancelOrder'
 import { PayButton } from '../PayButton'
 import { loadViewableOrder } from '../viewer'
 
@@ -48,6 +52,8 @@ async function Order({ orderNumber, keyParam }: { orderNumber: string; keyParam:
   const address = order.shippingAddress as Record<string, string | null>
   const isCod = order.paymentMethod === 'COD'
   const awaitingPayment = order.paymentMethod === 'RAZORPAY' && order.status === 'PENDING' && order.paymentStatus === 'PENDING'
+  const canCancel = !order.shipments[0] && customerCancellable(await getCancellationRule()).includes(order.status)
+  const [returnable, returns] = await Promise.all([returnableItems(order.id, await getReturnWindowDays()), returnsForOrder(order.id)])
 
   return (
     <div className="space-y-8">
@@ -70,8 +76,9 @@ async function Order({ orderNumber, keyParam }: { orderNumber: string; keyParam:
           <p className="font-serif text-2xl text-maroon-900">This order was cancelled</p>
           <p className="mt-1 text-sm">
             Order <strong>{order.orderNumber}</strong>
-            {order.paymentMethod === 'RAZORPAY' && order.paymentStatus !== 'PAID' ? ' was not paid in time, so the items were released.' : '.'}
+            {order.paymentMethod === 'RAZORPAY' && order.paymentStatus === 'PENDING' ? ' was not paid in time, so the items were released.' : '.'}
           </p>
+          {order.paymentStatus === 'PAID' && order.refunds.length === 0 && <p className="mt-1 text-sm">A refund of your payment is due and will appear here once issued.</p>}
         </div>
       ) : (
         <div className="rounded-sm border border-gold-500/50 bg-gold-100 px-5 py-4">
@@ -106,6 +113,23 @@ async function Order({ orderNumber, keyParam }: { orderNumber: string; keyParam:
         </div>
       </section>
 
+      {order.refunds.length > 0 && (
+        <section aria-labelledby="refunds-heading" className="rounded-sm border border-gold-500/30 bg-white p-6 text-sm">
+          <h2 id="refunds-heading" className="font-serif text-xl text-maroon-900">
+            Refunds
+          </h2>
+          <ul className="mt-3 space-y-1">
+            {order.refunds.map((r) => (
+              <li key={r.id} className="flex justify-between gap-3">
+                <span>{r.status === 'COMPLETED' ? `Refunded${r.completedAt ? ` on ${when.format(r.completedAt)}` : ''}` : 'Refund in progress'}</span>
+                <span className="font-medium">{formatPaise(r.amountPaise)}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3 text-xs text-stone">Banks can take several working days to show a refund in your account.</p>
+        </section>
+      )}
+
       {order.shipments[0] && <Tracking shipment={order.shipments[0]} />}
 
       <section aria-labelledby="ship-heading" className="rounded-sm border border-gold-500/30 bg-white p-6 text-sm">
@@ -122,6 +146,37 @@ async function Order({ orderNumber, keyParam }: { orderNumber: string; keyParam:
           {address.phone}
         </p>
       </section>
+
+      {returns.length > 0 && (
+        <section aria-labelledby="returns-heading" className="rounded-sm border border-gold-500/30 bg-white p-6 text-sm">
+          <h2 id="returns-heading" className="font-serif text-xl text-maroon-900">
+            Returns
+          </h2>
+          <ul className="mt-3 space-y-3">
+            {returns.map((r) => (
+              <li key={r.id}>
+                <p className="font-medium">
+                  {RETURN_STATUS_LABEL[r.status]} · {r.reasonLabel}
+                </p>
+                <p className="text-stone">{r.lines.map((l) => `${l.name} × ${l.quantity}`).join(', ')}</p>
+                {r.awbNumber && <p className="text-stone">Return tracking number {r.awbNumber}</p>}
+                {r.status === 'REJECTED' && r.adminNote && <p className="mt-1">{r.adminNote}</p>}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {returnable.items.length > 0 && (
+        <ReturnRequest
+          orderNumber={order.orderNumber}
+          accessKey={keyParam}
+          items={returnable.items}
+          reasons={Object.entries(RETURN_REASONS).map(([value, label]) => ({ value, label }))}
+        />
+      )}
+
+      {canCancel && <CancelOrder orderNumber={order.orderNumber} accessKey={keyParam} paidOnline={order.paymentMethod === 'RAZORPAY' && order.paymentStatus === 'PAID'} />}
 
       <Link href="/shop" className="inline-block text-sm text-maroon-800 underline underline-offset-2">
         Continue shopping
