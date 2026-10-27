@@ -1,6 +1,6 @@
 import 'dotenv/config'
 import { defineConfig } from 'prisma/config'
-import { databaseUrl } from './src/lib/database-url'
+import { findDatabaseUrl } from './src/lib/database-url'
 
 export default defineConfig({
   schema: 'prisma/schema.prisma',
@@ -10,6 +10,8 @@ export default defineConfig({
   },
   datasource: {
     // Migrations need a direct connection (Neon: DATABASE_URL_UNPOOLED).
-    url: databaseUrl({ direct: true }),
+    // Left unset when there is no database yet, so `prisma generate` still
+    // works during `npm install`; migrate and seed then fail with a clear error.
+    url: findDatabaseUrl({ direct: true }),
   },
 })
