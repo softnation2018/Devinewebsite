@@ -11,9 +11,10 @@
 import 'dotenv/config'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { PrismaClient, type Prisma } from '../src/generated/prisma/client'
+import { databaseUrl } from '../src/lib/database-url'
 
 const db = new PrismaClient({
-  adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }),
+  adapter: new PrismaPg({ connectionString: databaseUrl() }),
 })
 
 const rupees = (r: number) => Math.round(r * 100)

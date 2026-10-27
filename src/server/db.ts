@@ -1,5 +1,6 @@
 import { PrismaPg } from '@prisma/adapter-pg'
 import { PrismaClient } from '@/generated/prisma/client'
+import { databaseUrl } from '@/lib/database-url'
 
 // One client per server process. In development Next.js reloads modules on
 // every change, so the client is kept on globalThis to avoid opening a new
@@ -7,10 +8,7 @@ import { PrismaClient } from '@/generated/prisma/client'
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
 
 function createClient() {
-  const connectionString = process.env.DATABASE_URL
-  if (!connectionString) {
-    throw new Error('DATABASE_URL is not set')
-  }
+  const connectionString = databaseUrl()
   return new PrismaClient({ adapter: new PrismaPg({ connectionString }) })
 }
 
