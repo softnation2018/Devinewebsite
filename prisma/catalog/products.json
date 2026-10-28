@@ -38,11 +38,12 @@
       "Lapis lazuli bead bracelet on a dark background",
       "Lapis lazuli bead bracelet, angled view"
     ],
-    "price": 1299,
+    "price": 1499,
     "gstRateBp": 300,
     "weightGrams": 50,
     "stock": 10,
-    "active": true
+    "active": true,
+    "replacesPrice": 1299
   },
   {
     "folder": "7-chakra-lava-bracelet",
@@ -60,11 +61,12 @@
       "7 chakra lava stone bracelet on a dark background",
       "7 chakra lava stone bracelet, angled view"
     ],
-    "price": 899,
+    "price": 1499,
     "gstRateBp": 300,
     "weightGrams": 50,
     "stock": 10,
-    "active": true
+    "active": true,
+    "replacesPrice": 899
   },
   {
     "folder": "black-tourmaline-bracelet",
@@ -82,11 +84,12 @@
       "Black tourmaline bead bracelet on a light grey background",
       "Black tourmaline bead bracelet, angled view"
     ],
-    "price": 1199,
+    "price": 1499,
     "gstRateBp": 300,
     "weightGrams": 50,
     "stock": 10,
-    "active": true
+    "active": true,
+    "replacesPrice": 1199
   },
   {
     "folder": "crystal-bracelet",
@@ -105,11 +108,12 @@
       "Clear crystal sphatik bracelet on a light grey background",
       "Clear crystal sphatik bracelet, angled view"
     ],
-    "price": 999,
+    "price": 1499,
     "gstRateBp": 300,
     "weightGrams": 50,
     "stock": 10,
-    "active": true
+    "active": true,
+    "replacesPrice": 999
   },
   {
     "slug": "shri-hanuman-chalisa-kavach-silver-plated",

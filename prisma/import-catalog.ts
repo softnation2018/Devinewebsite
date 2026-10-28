@@ -36,6 +36,7 @@ type Entry = {
   weightGrams?: number
   stock?: number
   active?: boolean // put on sale with this price and stock
+  replacesPrice?: number // rupees: an earlier catalogue price, moved to price while staff have not changed it
 }
 
 const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl() }) })
@@ -82,6 +83,7 @@ async function main() {
   const store = photoStore()
   let added = 0
   let activated = 0
+  let repriced = 0
   for (const e of entries) {
     const existing = await db.product.findFirst({
       where: { OR: [{ slug: e.slug }, { sku: e.sku }] },
@@ -91,6 +93,9 @@ async function main() {
       if (e.active && e.price && existing.status === 'DRAFT' && existing.pricePaise === 0 && !existing.publishedAt) {
         await putOnSale(existing.id, e)
         activated++
+      } else if (e.price && e.replacesPrice && existing.pricePaise === Math.round(e.replacesPrice * 100)) {
+        await db.product.update({ where: { id: existing.id }, data: { pricePaise: Math.round(e.price * 100) } })
+        repriced++
       }
       continue
     }
@@ -129,7 +134,7 @@ async function main() {
     }
     added++
   }
-  console.log(`Catalog import: ${added} new product(s), ${activated} put on sale${store ? '' : ' (photos skipped: upload them in the admin)'}.`)
+  console.log(`Catalog import: ${added} new product(s), ${activated} put on sale, ${repriced} repriced${store ? '' : ' (photos skipped: upload them in the admin)'}.`)
 }
 
 main()
