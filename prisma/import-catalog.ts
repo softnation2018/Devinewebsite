@@ -3,7 +3,7 @@
 // product whose web address already exists, so staff edits are never
 // overwritten and a deleted-then-recreated product is left alone.
 //
-// Products arrive as drafts with price 0 and no stock: staff set the price
+// Products arrive as drafts with no stock (price 0 unless the entry gives one): staff set the price
 // and stock in Admin → Products and publish from there.
 //
 // Photos are written straight into the photo store when it is the database
@@ -18,16 +18,19 @@ import { PrismaClient } from '../src/generated/prisma/client'
 import { databaseUrl } from '../src/lib/database-url'
 
 type Entry = {
-  folder: string
+  folder?: string
   slug: string
   sku: string
   name: string
   nameHi?: string
   category: string
-  material: string
+  material?: string
   shortDescription: string
   description: string
   alts: string[]
+  price?: number // rupees
+  gstRateBp?: number
+  weightGrams?: number
 }
 
 const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl() }) })
@@ -65,16 +68,18 @@ async function main() {
         name: e.name,
         nameHi: e.nameHi ?? null,
         categoryId: category?.id ?? null,
-        material: e.material,
+        material: e.material || null,
         shortDescription: e.shortDescription,
         description: e.description,
-        pricePaise: 0,
+        pricePaise: Math.round((e.price ?? 0) * 100),
+        ...(e.gstRateBp !== undefined && { gstRateBp: e.gstRateBp }),
+        ...(e.weightGrams !== undefined && { weightGrams: e.weightGrams }),
         status: 'DRAFT',
         inventory: { create: { onHand: 0 } },
       },
       select: { id: true },
     })
-    if (store) {
+    if (store && e.folder) {
       const dir = path.join(root, 'images', e.folder)
       const names = (await readdir(dir)).filter((f) => f.endsWith('.webp') && !f.endsWith('.thumb.webp')).sort()
       for (const [i, file] of names.entries()) {
