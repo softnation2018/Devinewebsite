@@ -3,8 +3,11 @@
 // product whose web address already exists, so staff edits are never
 // overwritten and a deleted-then-recreated product is left alone.
 //
-// Products arrive as drafts with no stock (price 0 unless the entry gives one): staff set the price
-// and stock in Admin → Products and publish from there.
+// Products arrive as drafts with no stock (price 0 unless the entry gives
+// one): staff set the price and stock in Admin → Products and publish from
+// there. An entry marked active goes on sale with its price and stock, and an
+// existing product is switched on only while staff have not touched it (still
+// a never-published draft at price 0), so their edits always win.
 //
 // Photos are written straight into the photo store when it is the database
 // (Vercel) or a local folder; with R2, upload them in the admin instead.
@@ -31,6 +34,8 @@ type Entry = {
   price?: number // rupees
   gstRateBp?: number
   weightGrams?: number
+  stock?: number
+  active?: boolean // put on sale with this price and stock
 }
 
 const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl() }) })
@@ -54,12 +59,41 @@ async function put(key: string, file: Buffer) {
   }
 }
 
+async function putOnSale(productId: string, e: Entry) {
+  await db.$transaction(async (tx) => {
+    await tx.product.update({
+      where: { id: productId },
+      data: {
+        pricePaise: Math.round(e.price! * 100),
+        ...(e.gstRateBp !== undefined && { gstRateBp: e.gstRateBp }),
+        ...(e.weightGrams !== undefined && { weightGrams: e.weightGrams }),
+        status: 'PUBLISHED',
+        publishedAt: new Date(),
+      },
+    })
+    const stock = e.stock ?? 0
+    const inv = await tx.inventory.upsert({ where: { productId }, create: { productId, onHand: stock }, update: { onHand: { increment: stock } } })
+    if (stock > 0) await tx.inventoryMovement.create({ data: { inventoryId: inv.id, delta: stock, reason: 'PURCHASE', note: 'Opening stock' } })
+  })
+}
+
 async function main() {
   const entries = JSON.parse(await readFile(path.join(root, 'products.json'), 'utf8')) as Entry[]
   const store = photoStore()
   let added = 0
+  let activated = 0
   for (const e of entries) {
-    if (await db.product.findFirst({ where: { OR: [{ slug: e.slug }, { sku: e.sku }] }, select: { id: true } })) continue
+    const existing = await db.product.findFirst({
+      where: { OR: [{ slug: e.slug }, { sku: e.sku }] },
+      select: { id: true, status: true, pricePaise: true, publishedAt: true },
+    })
+    if (existing) {
+      if (e.active && e.price && existing.status === 'DRAFT' && existing.pricePaise === 0 && !existing.publishedAt) {
+        await putOnSale(existing.id, e)
+        activated++
+      }
+      continue
+    }
     const category = await db.category.findUnique({ where: { slug: e.category }, select: { id: true } })
     const product = await db.product.create({
       data: {
@@ -89,9 +123,13 @@ async function main() {
         await db.productImage.create({ data: { productId: product.id, key, alt: e.alts[i] ?? e.name, position: i } })
       }
     }
+    if (e.active && e.price) {
+      await putOnSale(product.id, e)
+      activated++
+    }
     added++
   }
-  console.log(`Catalog import: ${added} new draft product(s)${store ? '' : ' (photos skipped: upload them in the admin)'}.`)
+  console.log(`Catalog import: ${added} new product(s), ${activated} put on sale${store ? '' : ' (photos skipped: upload them in the admin)'}.`)
 }
 
 main()

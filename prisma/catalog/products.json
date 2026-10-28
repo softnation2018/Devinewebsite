@@ -15,7 +15,12 @@
       "Close-up of the copper spiral and its finish",
       "One copper helix spiral on a dark background",
       "Three copper helix spirals in a row"
-    ]
+    ],
+    "price": 1499,
+    "gstRateBp": 1200,
+    "weightGrams": 200,
+    "stock": 10,
+    "active": true
   },
   {
     "folder": "lapis-lazuli-bracelet",
@@ -32,7 +37,12 @@
       "Close-up of lapis lazuli beads with golden flecks",
       "Lapis lazuli bead bracelet on a dark background",
       "Lapis lazuli bead bracelet, angled view"
-    ]
+    ],
+    "price": 1299,
+    "gstRateBp": 300,
+    "weightGrams": 50,
+    "stock": 10,
+    "active": true
   },
   {
     "folder": "7-chakra-lava-bracelet",
@@ -49,7 +59,12 @@
       "Close-up of the seven coloured chakra beads",
       "7 chakra lava stone bracelet on a dark background",
       "7 chakra lava stone bracelet, angled view"
-    ]
+    ],
+    "price": 899,
+    "gstRateBp": 300,
+    "weightGrams": 50,
+    "stock": 10,
+    "active": true
   },
   {
     "folder": "black-tourmaline-bracelet",
@@ -66,7 +81,12 @@
       "Close-up of glossy black tourmaline beads",
       "Black tourmaline bead bracelet on a light grey background",
       "Black tourmaline bead bracelet, angled view"
-    ]
+    ],
+    "price": 1199,
+    "gstRateBp": 300,
+    "weightGrams": 50,
+    "stock": 10,
+    "active": true
   },
   {
     "folder": "crystal-bracelet",
@@ -84,7 +104,12 @@
       "Close-up of clear sphatik beads",
       "Clear crystal sphatik bracelet on a light grey background",
       "Clear crystal sphatik bracelet, angled view"
-    ]
+    ],
+    "price": 999,
+    "gstRateBp": 300,
+    "weightGrams": 50,
+    "stock": 10,
+    "active": true
   },
   {
     "slug": "shri-hanuman-chalisa-kavach-silver-plated",
