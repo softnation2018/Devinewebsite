@@ -26,3 +26,8 @@ a preview; use Cloudflare R2 (`MEDIA_STORAGE=r2`) for the real shop.
 
 Cron jobs run once a day here (Hobby's limit), so unpaid online orders are
 released daily rather than after 30 minutes.
+
+Catalogue: every build runs `prisma/import-catalog.ts`, which adds the
+products in `prisma/catalog/products.json` and puts the ones marked `active`
+on sale. It only changes a product staff have not edited yet, so prices and
+stock set in the admin are kept.
