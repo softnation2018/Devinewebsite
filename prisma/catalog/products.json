@@ -123,10 +123,13 @@
     "material": "Silver-plated metal",
     "shortDescription": "The complete Shri Hanuman Chalisa, finely engraved on a silver-plated plate. Devotees keep it in the home mandir, on the work desk or in the car as a daily reminder of Hanuman ji's courage, discipline and devotion. A meaningful gift for anyone who recites the Chalisa.",
     "description": "The complete Shri Hanuman Chalisa, finely engraved on a silver-plated plate. Devotees keep it in the home mandir, on the work desk or in the car as a daily reminder of Hanuman ji's courage, discipline and devotion. A meaningful gift for anyone who recites the Chalisa.\n\nWhat you get: one silver-plated Hanuman Chalisa kavach.\nCare: wipe with a soft dry cloth; keep away from moisture.",
-    "price": 1299,
+    "price": 1499,
     "gstRateBp": 1200,
     "weightGrams": 100,
-    "alts": []
+    "alts": [],
+    "replacesPrice": 1299,
+    "stock": 10,
+    "active": true
   },
   {
     "slug": "indra-dhooni-herbal-smoke-blend",
@@ -136,10 +139,13 @@
     "material": "Herbs and resins",
     "shortDescription": "A traditional blend of herbs and resins burned as dhooni during puja, meditation and home cleansing rituals. Its earthy, grounding aroma has long been used to prepare a calm, sacred space for prayer.",
     "description": "A traditional blend of herbs and resins burned as dhooni during puja, meditation and home cleansing rituals. Its earthy, grounding aroma has long been used to prepare a calm, sacred space for prayer.\n\nHow to use: place a small pinch on a lit charcoal disc or in a dhooni pot, in a well-ventilated room. Never leave burning unattended; keep away from children and pets.",
-    "price": 1299,
+    "price": 1499,
     "gstRateBp": 500,
     "weightGrams": 250,
-    "alts": []
+    "alts": [],
+    "replacesPrice": 1299,
+    "stock": 10,
+    "active": true
   },
   {
     "slug": "dhan-labh-spiritual-set-4-pieces",
@@ -149,10 +155,13 @@
     "material": "",
     "shortDescription": "A four-piece set traditionally associated with prosperity in Vastu and crystal practice: an orgonite pyramid, a copper spiral coil, a pyrite pendant and a multi-stone crystal bracelet.",
     "description": "A four-piece set traditionally associated with prosperity in Vastu and crystal practice: an orgonite pyramid, a copper spiral coil, a pyrite pendant and a multi-stone crystal bracelet.\n\nPlace the pyramid and coil in the north or north-east of your home or office, and wear the pendant or bracelet as a daily reminder of your intentions. These items carry traditional and symbolic significance; they are not a substitute for financial planning.",
-    "price": 1899,
+    "price": 1499,
     "gstRateBp": 300,
     "weightGrams": 500,
-    "alts": []
+    "alts": [],
+    "replacesPrice": 1899,
+    "stock": 10,
+    "active": true
   },
   {
     "slug": "dhan-prapti-crystal-combo",
@@ -162,10 +171,13 @@
     "material": "",
     "shortDescription": "A complete crystal set rooted in Vastu tradition: a money-magnet cone (selenite, pyrite, green jade, rudraksha and Shree Yantra), a multi-crystal pyramid with copper coil, a crystal bracelet (citrine, pyrite, green jade, aventurine, golden hematite, clear quartz), a raw selenite plate and…",
     "description": "A complete crystal set rooted in Vastu tradition: a money-magnet cone (selenite, pyrite, green jade, rudraksha and Shree Yantra), a multi-crystal pyramid with copper coil, a crystal bracelet (citrine, pyrite, green jade, aventurine, golden hematite, clear quartz), a raw selenite plate and a pyrite ring.\n\nTraditionally the cone and pyramid are kept in the north-east corner, and the bracelet and ring are rested on the selenite plate overnight. Significance is traditional and symbolic.",
-    "price": 1899,
+    "price": 1499,
     "gstRateBp": 300,
     "weightGrams": 600,
-    "alts": []
+    "alts": [],
+    "replacesPrice": 1899,
+    "stock": 10,
+    "active": true
   },
   {
     "slug": "sulemani-haqiq-adjustable-ring",
@@ -175,10 +187,13 @@
     "material": "",
     "shortDescription": "Sulemani Haqiq (banded black agate) has been worn across cultures for centuries as a stone of calm and steadiness. Its natural white bands make every ring one of a kind.",
     "description": "Sulemani Haqiq (banded black agate) has been worn across cultures for centuries as a stone of calm and steadiness. Its natural white bands make every ring one of a kind.\n\nAdjustable band fits most finger sizes. Natural stone patterns and shades vary from piece to piece.",
-    "price": 1999,
+    "price": 1499,
     "gstRateBp": 300,
     "weightGrams": 50,
-    "alts": []
+    "alts": [],
+    "replacesPrice": 1999,
+    "stock": 10,
+    "active": true
   },
   {
     "slug": "irani-firoza-turquoise-adjustable-ring",
@@ -188,10 +203,13 @@
     "material": "",
     "shortDescription": "Firoza, or turquoise, is one of the oldest gemstones prized in Persian and Indian tradition, long associated with good fortune and clear communication. Its sky-blue colour makes it an elegant everyday ring.",
     "description": "Firoza, or turquoise, is one of the oldest gemstones prized in Persian and Indian tradition, long associated with good fortune and clear communication. Its sky-blue colour makes it an elegant everyday ring.\n\nAdjustable band fits most finger sizes. Colour and matrix vary naturally from piece to piece.",
-    "price": 1999,
+    "price": 1499,
     "gstRateBp": 300,
     "weightGrams": 50,
-    "alts": []
+    "alts": [],
+    "replacesPrice": 1999,
+    "stock": 10,
+    "active": true
   },
   {
     "slug": "carma-stone-adjustable-ring",
@@ -201,10 +219,13 @@
     "material": "",
     "shortDescription": "A gemstone ring traditionally worn with prayers for harmony in love, relationships and married life. No rashi or zodiac restriction is followed for this stone.",
     "description": "A gemstone ring traditionally worn with prayers for harmony in love, relationships and married life. No rashi or zodiac restriction is followed for this stone.\n\nAdjustable band fits most finger sizes. Natural stone shade varies from piece to piece.",
-    "price": 1999,
+    "price": 1499,
     "gstRateBp": 300,
     "weightGrams": 50,
-    "alts": []
+    "alts": [],
+    "replacesPrice": 1999,
+    "stock": 10,
+    "active": true
   },
   {
     "slug": "tiger-eye-adjustable-ring",
@@ -214,10 +235,13 @@
     "material": "",
     "shortDescription": "Tiger Eye, with its golden-brown silky shimmer, is traditionally worn as a grounding stone and a guard against nazar (evil eye). A bold, warm-toned ring for daily wear.",
     "description": "Tiger Eye, with its golden-brown silky shimmer, is traditionally worn as a grounding stone and a guard against nazar (evil eye). A bold, warm-toned ring for daily wear.\n\nAdjustable band fits most finger sizes. Natural banding varies from piece to piece.",
-    "price": 1999,
+    "price": 1499,
     "gstRateBp": 300,
     "weightGrams": 50,
-    "alts": []
+    "alts": [],
+    "replacesPrice": 1999,
+    "stock": 10,
+    "active": true
   },
   {
     "slug": "spider-crystal-adjustable-ring",
@@ -227,10 +251,13 @@
     "material": "",
     "shortDescription": "Spider crystal (spider-web jasper) shows a natural web-like pattern and is traditionally worn as a stone of calm and clear thinking during stressful times.",
     "description": "Spider crystal (spider-web jasper) shows a natural web-like pattern and is traditionally worn as a stone of calm and clear thinking during stressful times.\n\nAdjustable band fits most finger sizes. Each stone's web pattern is unique.",
-    "price": 1999,
+    "price": 1499,
     "gstRateBp": 300,
     "weightGrams": 50,
-    "alts": []
+    "alts": [],
+    "replacesPrice": 1999,
+    "stock": 10,
+    "active": true
   },
   {
     "slug": "pratyangira-devi-kavach",
@@ -240,9 +267,12 @@
     "material": "Metal",
     "shortDescription": "A kavach dedicated to Maa Pratyangira, the fierce protective form of the Divine Mother worshipped in Shakta tradition. Devotees keep it in the puja room, shop or office, or carry it with them as a symbol of the Goddess's protection.",
     "description": "A kavach dedicated to Maa Pratyangira, the fierce protective form of the Divine Mother worshipped in Shakta tradition. Devotees keep it in the puja room, shop or office, or carry it with them as a symbol of the Goddess's protection.\n\nSignificance is devotional and traditional.",
-    "price": 1299,
+    "price": 1499,
     "gstRateBp": 1200,
     "weightGrams": 100,
-    "alts": []
+    "alts": [],
+    "replacesPrice": 1299,
+    "stock": 10,
+    "active": true
   }
 ]

@@ -7,7 +7,7 @@
 // one): staff set the price and stock in Admin → Products and publish from
 // there. An entry marked active goes on sale with its price and stock, and an
 // existing product is switched on only while staff have not touched it (still
-// a never-published draft at price 0), so their edits always win.
+// a never-published draft at its catalogue price), so their edits always win.
 //
 // Photos are written straight into the photo store when it is the database
 // (Vercel) or a local folder; with R2, upload them in the admin instead.
@@ -90,7 +90,8 @@ async function main() {
       select: { id: true, status: true, pricePaise: true, publishedAt: true },
     })
     if (existing) {
-      if (e.active && e.price && existing.status === 'DRAFT' && existing.pricePaise === 0 && !existing.publishedAt) {
+      const untouchedPrice = existing.pricePaise === 0 || existing.pricePaise === Math.round((e.replacesPrice ?? 0) * 100)
+      if (e.active && e.price && existing.status === 'DRAFT' && untouchedPrice && !existing.publishedAt) {
         await putOnSale(existing.id, e)
         activated++
       } else if (e.price && e.replacesPrice && existing.pricePaise === Math.round(e.replacesPrice * 100)) {
