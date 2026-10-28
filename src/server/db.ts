@@ -9,7 +9,10 @@ const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
 
 function createClient() {
   const connectionString = databaseUrl()
-  return new PrismaClient({ adapter: new PrismaPg({ connectionString }) })
+  // While building, Next.js prerenders pages in several workers at once.
+  // Small pools keep the total under a hosted database's connection limit.
+  const building = process.env.NEXT_PHASE === 'phase-production-build'
+  return new PrismaClient({ adapter: new PrismaPg({ connectionString, ...(building && { max: 2 }) }) })
 }
 
 export const db = globalForPrisma.prisma ?? createClient()
