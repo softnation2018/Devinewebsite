@@ -38,6 +38,7 @@ export async function listOrders(opts: { status?: OrderStatus; q?: string; page?
         status: true,
         paymentStatus: true,
         paymentMethod: true,
+        deliverySpeed: true,
         totalPaise: true,
         placedAt: true,
         guestEmail: true,

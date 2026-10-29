@@ -86,6 +86,7 @@ async function Order({ orderNumber, keyParam }: { orderNumber: string; keyParam:
           <p className="mt-1 text-sm">
             Order <strong>{order.orderNumber}</strong> · {STATUS_TEXT[order.status] ?? order.status}
             {order.paymentStatus === 'PAID' && ' · Paid'}
+            {order.deliverySpeed === 'EXPRESS' && ' · Express delivery'}
           </p>
           {isCod && order.paymentStatus === 'PENDING' && (
             <p className="mt-2 text-sm">Please keep {formatPaise(order.totalPaise)} ready to pay in cash on delivery.</p>

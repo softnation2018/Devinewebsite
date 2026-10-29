@@ -12,10 +12,19 @@ export type CommerceSettings = {
   codFeePaise: number
   codMinOrderPaise: number
   codMaxOrderPaise: number
+  expressEnabled: boolean
+  /** Basis points: 1500 = 15% */
+  expressPrepaidDiscountBp: number
+  standardPrepaidDiscountBp: number
 }
 
 function int(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : fallback
+}
+
+/** A stored whole percentage as basis points; anything unexpected means no discount. */
+function percentBp(value: unknown): number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 90 ? value * 100 : 0
 }
 
 export function parseCommerceSettings(rows: { key: string; value: unknown }[]): CommerceSettings {
@@ -29,6 +38,9 @@ export function parseCommerceSettings(rows: { key: string; value: unknown }[]): 
     codFeePaise: int(v['cod.feePaise'], 0),
     codMinOrderPaise: int(v['cod.minOrderPaise'], 0),
     codMaxOrderPaise: int(v['cod.maxOrderPaise'], 0),
+    expressEnabled: v['delivery.expressEnabled'] === true,
+    expressPrepaidDiscountBp: percentBp(v['prepaid.expressDiscountPercent']),
+    standardPrepaidDiscountBp: percentBp(v['prepaid.standardDiscountPercent']),
   }
 }
 
@@ -37,13 +49,13 @@ export async function getCommerceSettings(): Promise<CommerceSettings> {
   cacheLife('minutes')
   cacheTag('settings')
   const rows = await db.storeSetting.findMany({
-    where: { key: { in: ['shipping.flatPaise', 'shipping.freeAbovePaise', 'cod.enabled', 'cod.feePaise', 'cod.minOrderPaise', 'cod.maxOrderPaise'] } },
+    where: { key: { in: ['shipping.flatPaise', 'shipping.freeAbovePaise', 'cod.enabled', 'cod.feePaise', 'cod.minOrderPaise', 'cod.maxOrderPaise', 'delivery.expressEnabled', 'prepaid.expressDiscountPercent', 'prepaid.standardDiscountPercent'] } },
     select: { key: true, value: true },
   })
   return parseCommerceSettings(rows)
 }
 
-/** Online payment is offered only once Razorpay keys are configured. */
+/** Online payment is offered only once a payment gateway's keys are configured (Razorpay today). */
 export function onlinePaymentAvailable(): boolean {
   return Boolean(process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET)
 }

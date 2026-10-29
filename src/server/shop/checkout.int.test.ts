@@ -17,6 +17,9 @@ const settings: CommerceSettings = {
   codFeePaise: 4_900,
   codMinOrderPaise: 0,
   codMaxOrderPaise: 1_000_000,
+  expressEnabled: false,
+  expressPrepaidDiscountBp: 0,
+  standardPrepaidDiscountBp: 0,
 }
 
 const address: AddressInput = {
@@ -46,7 +49,7 @@ async function cartWith(productId: string, quantity: number, userId: string | nu
 }
 
 function input(cartId: string, over: Partial<PlaceOrderInput> = {}): PlaceOrderInput {
-  return { cartId, userId: null, email: `${tag}@example.test`, address, paymentMethod: 'COD', couponCode: null, customerNote: null, saveAddress: false, ...over }
+  return { cartId, userId: null, email: `${tag}@example.test`, address, paymentMethod: 'COD', delivery: 'STANDARD', couponCode: null, customerNote: null, saveAddress: false, ...over }
 }
 
 afterAll(async () => {
@@ -182,6 +185,26 @@ describe('placing an order', () => {
     if (!r.ok) throw new Error(r.message)
     const order = await db.order.findUniqueOrThrow({ where: { id: r.orderId } })
     expect(order).toMatchObject({ status: 'PENDING', paymentStatus: 'PENDING', codFeePaise: 0, totalPaise: 57_900 })
+  })
+
+  it('Express is online only and takes the larger prepaid discount; Standard COD adds the fee', async () => {
+    const rules = { ...settings, codFeePaise: 4_900, expressEnabled: true, expressPrepaidDiscountBp: 1_500, standardPrepaidDiscountBp: 1_000 }
+    const p = await product(10, 50_000)
+    expect(await placeOrder(input(await cartWith(p.id, 1), { delivery: 'EXPRESS' }), rules, true)).toMatchObject({ ok: false, reason: 'PAYMENT_METHOD' })
+    expect(await placeOrder(input(await cartWith(p.id, 1), { delivery: 'EXPRESS', paymentMethod: 'RAZORPAY' }), rules, false)).toMatchObject({
+      ok: false,
+      reason: 'PAYMENT_METHOD',
+    })
+
+    const express = await placeOrder(input(await cartWith(p.id, 1), { delivery: 'EXPRESS', paymentMethod: 'RAZORPAY' }), rules, true)
+    const standard = await placeOrder(input(await cartWith(p.id, 1), { paymentMethod: 'RAZORPAY' }), rules, true)
+    const cod = await placeOrder(input(await cartWith(p.id, 1)), rules, true)
+    if (!express.ok || !standard.ok || !cod.ok) throw new Error('order refused')
+    const get = (id: string) => db.order.findUniqueOrThrow({ where: { id } })
+    // ₹500 + ₹79 shipping (free shipping starts higher in these settings)
+    expect(await get(express.orderId)).toMatchObject({ deliverySpeed: 'EXPRESS', prepaidDiscountPaise: 7_500, codFeePaise: 0, totalPaise: 50_400 })
+    expect(await get(standard.orderId)).toMatchObject({ deliverySpeed: 'STANDARD', prepaidDiscountPaise: 5_000, codFeePaise: 0, totalPaise: 52_900 })
+    expect(await get(cod.orderId)).toMatchObject({ deliverySpeed: 'STANDARD', prepaidDiscountPaise: 0, codFeePaise: 4_900, totalPaise: 62_800 })
   })
 
   it('applies a coupon once, and its total limit holds under concurrent orders', async () => {

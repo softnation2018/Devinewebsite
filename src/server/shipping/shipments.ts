@@ -104,7 +104,7 @@ async function buildParcel(orderId: string, reference: string, box: Box): Promis
     totalPaise: o.totalPaise,
     codAmountPaise: o.paymentMethod === 'COD' ? o.totalPaise : 0,
     shippingPaise: o.shippingPaise + o.codFeePaise,
-    discountPaise: o.discountPaise,
+    discountPaise: o.discountPaise + o.prepaidDiscountPaise,
     ...box,
     customer: {
       name: a.fullName ?? '',

@@ -26,6 +26,7 @@ export const PRODUCT_STATUS_LABEL: Record<ProductStatus, string> = {
 }
 
 const tone: Record<string, string> = {
+  EXPRESS: 'bg-maroon-900 text-ivory',
   DRAFT: 'bg-stone/15 text-charcoal',
   PUBLISHED: 'bg-emerald-100 text-emerald-900',
   ARCHIVED: 'bg-maroon-700/10 text-maroon-800',

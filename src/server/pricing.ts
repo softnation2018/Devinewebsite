@@ -27,6 +27,9 @@ export type PricingInput = {
   shipping: ShippingRule
   paymentMethod: 'RAZORPAY' | 'COD'
   codFeePaise: number
+  /** Discount for paying online, in basis points (1000 = 10%), taken off the
+   *  items after any coupon. Ignored for COD. Default 0. */
+  prepaidDiscountBp?: number
 }
 
 export type LineTax = { taxablePaise: number; taxPaise: number }
@@ -34,6 +37,8 @@ export type LineTax = { taxablePaise: number; taxPaise: number }
 export type PricingResult = {
   subtotalPaise: number
   discountPaise: number
+  /** Discount for paying online. Separate from the coupon discount. */
+  prepaidDiscountPaise: number
   shippingPaise: number
   codFeePaise: number
   /** GST contained in the item prices. Prices are GST-inclusive, so this is
@@ -64,6 +69,10 @@ export function calculateOrderTotals(input: PricingInput): PricingResult {
   }
   assertWholePaise(input.shipping.flatPaise, 'Shipping charge')
   assertWholePaise(input.codFeePaise, 'COD fee')
+  const prepaidBp = input.prepaidDiscountBp ?? 0
+  if (!Number.isInteger(prepaidBp) || prepaidBp < 0 || prepaidBp > 10_000) {
+    throw new PricingError('Prepaid discount must be a whole number of basis points from 0 to 10000')
+  }
 
   const lineGross = input.lines.map((l) => l.unitPricePaise * l.quantity)
   const subtotalPaise = lineGross.reduce((a, b) => a + b, 0)
@@ -95,48 +104,52 @@ export function calculateOrderTotals(input: PricingInput): PricingResult {
   discountPaise = Math.min(discountPaise, eligibleSubtotal)
 
   const afterDiscount = subtotalPaise - discountPaise
-  const qualifiesForFree =
-    input.shipping.freeAbovePaise !== null && afterDiscount >= input.shipping.freeAbovePaise
+  const qualifiesForFree = input.shipping.freeAbovePaise !== null && afterDiscount >= input.shipping.freeAbovePaise
   const shippingPaise = freeShipping || qualifiesForFree ? 0 : input.shipping.flatPaise
 
   const codFeePaise = input.paymentMethod === 'COD' ? input.codFeePaise : 0
+  // Free shipping is judged before the prepaid discount, so choosing to pay
+  // online never makes shipping cost more.
+  const prepaidDiscountPaise = input.paymentMethod === 'COD' ? 0 : Math.floor((afterDiscount * prepaidBp) / 10_000)
 
-  const lineTaxes = extractInclusiveGst(input.lines, lineGross, eligible, discountPaise)
+  const lineTaxes = extractInclusiveGst(input.lines, lineGross, eligible, discountPaise, prepaidDiscountPaise)
   const taxPaise = lineTaxes.reduce((a, t) => a + t.taxPaise, 0)
 
   return {
     subtotalPaise,
     discountPaise,
+    prepaidDiscountPaise,
     shippingPaise,
     codFeePaise,
     taxPaise,
-    totalPaise: afterDiscount + shippingPaise + codFeePaise,
+    totalPaise: afterDiscount - prepaidDiscountPaise + shippingPaise + codFeePaise,
     lineTaxes,
     couponRejected,
   }
 }
 
-// Spreads the discount across the lines it applies to, in proportion to
-// their value, with the rounding remainder on the last such line so the
-// parts always sum to the whole, then splits each discounted line into
-// taxable value and the GST inside it.
-function extractInclusiveGst(lines: PricingLine[], gross: number[], eligible: boolean[], discountPaise: number): LineTax[] {
-  const base = gross.reduce((a, g, i) => (eligible[i] ? a + g : a), 0)
-  const lastEligible = eligible.lastIndexOf(true)
-  let allocated = 0
-
+// Spreads the coupon discount across the lines it applies to, and then the
+// prepaid discount across every line, each in proportion to line value, with
+// the rounding remainder on the last line so the parts always sum to the
+// whole. Then splits each discounted line into taxable value and the GST
+// inside it.
+function extractInclusiveGst(lines: PricingLine[], gross: number[], eligible: boolean[], discountPaise: number, prepaidPaise: number): LineTax[] {
+  const afterCoupon = spread(gross, eligible, discountPaise).map((share, i) => gross[i] - share)
+  const everyLine = lines.map(() => true)
+  const net = spread(afterCoupon, everyLine, prepaidPaise).map((share, i) => afterCoupon[i] - share)
   return lines.map((line, i) => {
-    const share = !eligible[i]
-      ? 0
-      : i === lastEligible
-        ? discountPaise - allocated
-        : base === 0
-          ? 0
-          : Math.floor((discountPaise * gross[i]) / base)
-    allocated += share
+    const taxablePaise = Math.round((net[i] * 10_000) / (10_000 + line.gstRateBp))
+    return { taxablePaise, taxPaise: net[i] - taxablePaise }
+  })
+}
 
-    const net = gross[i] - share
-    const taxablePaise = Math.round((net * 10_000) / (10_000 + line.gstRateBp))
-    return { taxablePaise, taxPaise: net - taxablePaise }
+function spread(values: number[], eligible: boolean[], amount: number): number[] {
+  const base = values.reduce((a, v, i) => (eligible[i] ? a + v : a), 0)
+  const last = eligible.lastIndexOf(true)
+  let allocated = 0
+  return values.map((v, i) => {
+    const share = !eligible[i] ? 0 : i === last ? amount - allocated : base === 0 ? 0 : Math.floor((amount * v) / base)
+    allocated += share
+    return share
   })
 }

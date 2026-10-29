@@ -13,11 +13,7 @@ import { getCartCouponCode } from '@/server/shop/cart'
 import { currentCartId, rememberOrderAccess } from '@/server/shop/cart-session'
 import { placeOrder } from '@/server/shop/checkout'
 
-export type CheckoutState = {
-  error?: string
-  fieldErrors?: Record<string, string>
-  values?: Record<string, string>
-}
+export type CheckoutState = { error?: string; fieldErrors?: Record<string, string>; values?: Record<string, string> }
 
 const siteUrl = siteUrlOf()
 
@@ -25,7 +21,13 @@ const checkoutSchema = z.object({
   email: z.string().trim().toLowerCase().max(254).email('Enter a valid email address.').optional(),
   address: addressSchema,
   paymentMethod: z.enum(['RAZORPAY', 'COD'], { message: 'Please choose how you would like to pay.' }),
-  customerNote: z.string().trim().max(500).optional().transform((v) => v || null),
+  delivery: z.enum(['STANDARD', 'EXPRESS'], { message: 'Please choose a delivery option.' }),
+  customerNote: z
+    .string()
+    .trim()
+    .max(500)
+    .optional()
+    .transform((v) => v || null),
   saveAddress: z.boolean(),
 })
 
@@ -37,9 +39,10 @@ export async function placeOrderAction(_prev: CheckoutState, formData: FormData)
 
   const user = await getCurrentUser()
   const parsed = checkoutSchema.safeParse({
-    email: user ? undefined : values.email ?? '',
+    email: user ? undefined : (values.email ?? ''),
     address: Object.fromEntries(ADDRESS_FIELDS.map((f) => [f, values[f] ?? ''])),
     paymentMethod: values.paymentMethod,
+    delivery: values.delivery,
     customerNote: values.customerNote,
     saveAddress: values.saveAddress === 'on',
   })
@@ -67,6 +70,7 @@ export async function placeOrderAction(_prev: CheckoutState, formData: FormData)
       email,
       address: parsed.data.address,
       paymentMethod: parsed.data.paymentMethod,
+      delivery: parsed.data.delivery,
       couponCode: await getCartCouponCode(cartId),
       customerNote: parsed.data.customerNote,
       saveAddress: parsed.data.saveAddress,

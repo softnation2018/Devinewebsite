@@ -54,7 +54,7 @@ class FakeRazorpay implements RazorpayGateway {
   }
 }
 
-const settings: CommerceSettings = { shippingFlatPaise: 0, shippingFreeAbovePaise: null, codEnabled: true, codFeePaise: 0, codMinOrderPaise: 0, codMaxOrderPaise: 0 }
+const settings: CommerceSettings = { shippingFlatPaise: 0, shippingFreeAbovePaise: null, codEnabled: true, codFeePaise: 0, codMinOrderPaise: 0, codMaxOrderPaise: 0, expressEnabled: false, expressPrepaidDiscountBp: 0, standardPrepaidDiscountBp: 0 }
 let rz: FakeRazorpay
 beforeEach(() => {
   rz = new FakeRazorpay()
@@ -69,7 +69,7 @@ async function onlineOrder(onHand = 5, qty = 1, couponCode: string | null = null
   const cart = await createCart(null)
   await addToCart(cart.id, p.id, null, qty)
   const r = await placeOrder(
-    { cartId: cart.id, userId: null, email: `${tag}-${n}@example.test`, address: { fullName: 'A', phone: '9876543210', line1: 'x', line2: null, landmark: null, city: 'Pune', state: 'Maharashtra', pincode: '411001' }, paymentMethod: 'RAZORPAY', couponCode, customerNote: null, saveAddress: false },
+    { cartId: cart.id, userId: null, email: `${tag}-${n}@example.test`, address: { fullName: 'A', phone: '9876543210', line1: 'x', line2: null, landmark: null, city: 'Pune', state: 'Maharashtra', pincode: '411001' }, paymentMethod: 'RAZORPAY', delivery: 'STANDARD', couponCode, customerNote: null, saveAddress: false },
     settings,
     true,
   )

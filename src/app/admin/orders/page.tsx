@@ -88,6 +88,7 @@ async function Orders({ status, q, page }: { status?: OrderStatus; q: string; pa
                     <Badge value={o.status} label={ORDER_STATUS_LABEL[o.status]} />
                   </td>
                   <td className="px-3">
+                    {o.deliverySpeed === 'EXPRESS' && <strong className="text-maroon-800">Express · </strong>}
                     {o.paymentMethod === 'COD' ? 'COD' : 'Online'} · <Badge value={o.paymentStatus} label={PAYMENT_STATUS_LABEL[o.paymentStatus]} />
                   </td>
                   <td className="px-3 text-right font-medium">{formatPaise(o.totalPaise)}</td>

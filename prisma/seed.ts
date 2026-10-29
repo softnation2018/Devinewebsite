@@ -154,6 +154,9 @@ const settings: { key: string; value: Prisma.InputJsonValue; description: string
   { key: 'cod.feePaise', value: rupees(49), description: 'COD handling fee added to COD orders' },
   { key: 'cod.minOrderPaise', value: rupees(199), description: 'Smallest order eligible for COD' },
   { key: 'cod.maxOrderPaise', value: rupees(10000), description: 'Largest order eligible for COD' },
+  { key: 'delivery.expressEnabled', value: true, description: 'Offer Express delivery (2-3 days, pay online only)' },
+  { key: 'prepaid.expressDiscountPercent', value: 15, description: 'Discount for Express delivery paid online (%)' },
+  { key: 'prepaid.standardDiscountPercent', value: 10, description: 'Discount for Standard delivery paid online (%)' },
   { key: 'returns.windowDays', value: 7, description: 'Days after delivery a return can be requested' },
   { key: 'cancellation.allowedUntil', value: 'BEFORE_SHIPMENT', description: 'Until when a customer can cancel themselves' },
   { key: 'tax.pricesIncludeGst', value: true, description: 'Product prices include GST (confirm with your CA)' },
@@ -202,7 +205,7 @@ async function bootstrapOwner() {
 
 async function main() {
   await bootstrapOwner()
-  if (process.env.SEED_ONLY_IF_EMPTY === 'true' && (await db.storeSetting.count()) > 0) {
+  if (process.env.SEED_ONLY_IF_EMPTY === 'true' && (await db.storeSetting.count({ where: { key: 'shipping.flatPaise' } })) > 0) {
     console.log('Shop already set up; seed skipped.')
     return
   }

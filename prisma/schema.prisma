@@ -438,6 +438,11 @@ enum PaymentMethod {
   COD
 }
 
+enum DeliverySpeed {
+  STANDARD
+  EXPRESS
+}
+
 model Order {
   id          String @id @default(cuid())
   orderNumber String @unique // human-readable, e.g. DM-2026-00042
@@ -449,10 +454,12 @@ model Order {
   status        OrderStatus   @default(PENDING)
   paymentStatus PaymentStatus @default(PENDING)
   paymentMethod PaymentMethod
+  deliverySpeed DeliverySpeed @default(STANDARD)
 
   // Every total below was computed on the server and is never accepted from the browser.
   subtotalPaise     Int
   discountPaise     Int @default(0)
+  prepaidDiscountPaise Int @default(0) // for paying online; separate from the coupon discount
   shippingPaise     Int @default(0)
   codFeePaise       Int @default(0)
   taxPaise          Int @default(0)

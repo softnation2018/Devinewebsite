@@ -43,6 +43,7 @@ async function OrderDetail({ id }: { id: string }) {
         <div className="flex flex-wrap gap-2">
           <Badge value={order.status} label={ORDER_STATUS_LABEL[order.status]} />
           <Badge value={order.paymentStatus} label={`${order.paymentMethod === 'COD' ? 'COD' : 'Online'} · ${PAYMENT_STATUS_LABEL[order.paymentStatus]}`} />
+          <Badge value={order.deliverySpeed} label={order.deliverySpeed === 'EXPRESS' ? 'Express delivery (2-3 days)' : 'Standard delivery'} />
         </div>
       </AdminHeading>
 
@@ -84,7 +85,7 @@ async function OrderDetail({ id }: { id: string }) {
               <ul className="mt-2 space-y-1">
                 {order.payments.map((p) => (
                   <li key={p.id}>
-                    {p.method === 'COD' ? 'Cash on Delivery' : 'Razorpay'} · {formatPaise(p.amountPaise)} · {PAYMENT_STATUS_LABEL[p.status]}
+                    {p.method === 'COD' ? 'Cash on Delivery' : 'Online'} · {formatPaise(p.amountPaise)} · {PAYMENT_STATUS_LABEL[p.status]}
                     {p.providerPaymentId && <span className="text-stone"> · {p.providerPaymentId}</span>}
                     {p.failureReason && <span className="text-stone"> · {p.failureReason}</span>}
                   </li>

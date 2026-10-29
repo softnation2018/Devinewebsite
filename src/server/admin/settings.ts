@@ -12,6 +12,7 @@ export type SettingKind =
   | { type: 'moneyOrNone' }
   | { type: 'boolean' }
   | { type: 'days' }
+  | { type: 'percent' }
   | { type: 'choice'; options: { value: string; label: string }[] }
   | { type: 'text'; max: number; pattern?: RegExp; patternHint?: string }
 
@@ -22,6 +23,9 @@ export const SETTING_KINDS: Record<string, SettingKind> = {
   'cod.feePaise': { type: 'money' },
   'cod.minOrderPaise': { type: 'money' },
   'cod.maxOrderPaise': { type: 'money' },
+  'delivery.expressEnabled': { type: 'boolean' },
+  'prepaid.expressDiscountPercent': { type: 'percent' },
+  'prepaid.standardDiscountPercent': { type: 'percent' },
   'returns.windowDays': { type: 'days' },
   'cancellation.allowedUntil': {
     type: 'choice',
@@ -71,6 +75,10 @@ export function parseSettingInput(key: string, raw: string | null): { ok: true; 
     case 'days': {
       const n = Number(v)
       return Number.isInteger(n) && n >= 0 && n <= 365 && v !== '' ? { ok: true, value: n } : { ok: false, error: 'Enter a whole number of days (0 to 365).' }
+    }
+    case 'percent': {
+      const n = Number(v)
+      return Number.isInteger(n) && n >= 0 && n <= 90 && v !== '' ? { ok: true, value: n } : { ok: false, error: 'Enter a whole percentage from 0 to 90.' }
     }
     case 'choice':
       return kind.options.some((o) => o.value === v) ? { ok: true, value: v } : { ok: false, error: 'Choose one of the options.' }

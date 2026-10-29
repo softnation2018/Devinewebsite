@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { parseCommerceSettings } from '../settings'
 import { addressSchema, normaliseIndianMobile } from './address'
-import { paymentOptions } from './checkout'
+import { checkChoice, paymentOptions, prepaidDiscountBp } from './checkout'
 
 describe('normaliseIndianMobile', () => {
   it('accepts common ways of writing a mobile number', () => {
@@ -37,11 +37,27 @@ describe('parseCommerceSettings', () => {
 })
 
 describe('paymentOptions', () => {
-  const s = { shippingFlatPaise: 0, shippingFreeAbovePaise: null, codEnabled: true, codFeePaise: 0, codMinOrderPaise: 20_000, codMaxOrderPaise: 100_000 }
+  const s = { shippingFlatPaise: 0, shippingFreeAbovePaise: null, codEnabled: true, codFeePaise: 0, codMinOrderPaise: 20_000, codMaxOrderPaise: 100_000, expressEnabled: true, expressPrepaidDiscountBp: 1500, standardPrepaidDiscountBp: 1000 }
   it('offers COD only inside its limits', () => {
     expect(paymentOptions(50_000, s, false).cod).toBe(true)
     expect(paymentOptions(10_000, s, false).cod).toBe(false)
     expect(paymentOptions(200_000, s, false).cod).toBe(false)
     expect(paymentOptions(50_000, { ...s, codEnabled: false }, true)).toMatchObject({ cod: false, online: true })
+  })
+
+  it('offers Express only with online payment, and never with COD', () => {
+    expect(paymentOptions(50_000, s, false)).toMatchObject({ express: false })
+    expect(paymentOptions(50_000, s, true)).toMatchObject({ express: true })
+    expect(paymentOptions(50_000, { ...s, expressEnabled: false }, true)).toMatchObject({ express: false })
+    const o = paymentOptions(50_000, s, true)
+    expect(checkChoice('EXPRESS', 'COD', o)).toMatch(/online payment only/)
+    expect(checkChoice('EXPRESS', 'RAZORPAY', o)).toBeNull()
+    expect(checkChoice('STANDARD', 'COD', o)).toBeNull()
+    expect(checkChoice('EXPRESS', 'RAZORPAY', paymentOptions(50_000, s, false))).toMatch(/being set up/)
+  })
+
+  it('gives the larger prepaid discount to Express', () => {
+    expect(prepaidDiscountBp('EXPRESS', s)).toBe(1500)
+    expect(prepaidDiscountBp('STANDARD', s)).toBe(1000)
   })
 })

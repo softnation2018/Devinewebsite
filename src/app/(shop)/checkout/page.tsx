@@ -3,7 +3,6 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { Suspense } from 'react'
 import { EmptyState } from '@/components/EmptyState'
-import { OrderSummary } from '@/components/OrderSummary'
 import { PageHeader } from '@/components/PageHeader'
 import { formatPaise } from '@/lib/money'
 import { getCurrentUser } from '@/server/auth/session'
@@ -34,16 +33,14 @@ async function Checkout() {
   if (!cartId) return <EmptyState title="Your cart is empty" body="Add something to your cart before checking out." />
 
   const [user, settings, couponCode] = await Promise.all([getCurrentUser(), getCommerceSettings(), getCartCouponCode(cartId)])
-  const quote = await quoteCart(cartId, { settings, paymentMethod: 'RAZORPAY', couponCode, userId: user?.id ?? null, email: null })
+  const quote = await quoteCart(cartId, { settings, couponCode, userId: user?.id ?? null, email: null })
   if (quote.lines.length === 0) return <EmptyState title="Your cart is empty" body="Add something to your cart before checking out." />
-  if (quote.hasProblems || !quote.totals) redirect('/cart')
+  if (quote.hasProblems || !quote.totals || !quote.choices) redirect('/cart')
 
   const options = paymentOptions(quote.totals.totalPaise, settings, onlinePaymentAvailable())
-  const saved = user
-    ? await db.address.findFirst({ where: { userId: user.id }, orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }] })
-    : null
+  const saved = user ? await db.address.findFirst({ where: { userId: user.id }, orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }] }) : null
 
-  const summary = (
+  const items = (
     <>
       <ul className="space-y-2 text-sm">
         {quote.lines.map((l) => (
@@ -55,7 +52,6 @@ async function Checkout() {
           </li>
         ))}
       </ul>
-      <OrderSummary totals={quote.totals} couponCode={quote.coupon?.ok ? quote.coupon.code : null} />
       <Link href="/cart" className="block text-sm text-maroon-800 underline underline-offset-2">
         Edit cart
       </Link>
@@ -63,60 +59,46 @@ async function Checkout() {
   )
 
   return (
-    <div className="grid gap-10 lg:grid-cols-[1fr_22rem]">
-      <div>
-        {/* On phones the order sits at the top, folded, so the total is seen before the form. */}
-        <details className="mb-6 rounded-sm border border-gold-500/30 bg-white lg:hidden">
-          <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm">
-            <span className="text-maroon-800 underline underline-offset-2">Show order summary</span>
-            <span className="font-semibold text-maroon-900">{formatPaise(quote.totals.totalPaise)}</span>
-          </summary>
-          <div className="space-y-5 border-t border-gold-500/20 px-4 py-4">{summary}</div>
-        </details>
-        {!user && (
-          <p className="mb-6 text-sm text-stone">
-            Checking out as a guest.{' '}
-            <Link href="/account/login?next=/checkout" className="text-maroon-800 underline underline-offset-2">
-              Sign in
-            </Link>{' '}
-            to use saved addresses.
-          </p>
-        )}
-        {!options.online && !options.cod ? (
-          <p role="alert" className="rounded-sm border border-maroon-700/40 bg-maroon-700/5 px-4 py-3 text-sm text-maroon-800">
-            Orders cannot be placed right now because no payment method is available. Please check back soon.
-          </p>
-        ) : (
-          <CheckoutForm
-            signedInEmail={user?.email ?? null}
-            defaults={
-              saved
-                ? {
-                    fullName: saved.fullName,
-                    phone: saved.phone,
-                    line1: saved.line1,
-                    line2: saved.line2 ?? '',
-                    landmark: saved.landmark ?? '',
-                    city: saved.city,
-                    state: saved.state,
-                    pincode: saved.pincode,
-                  }
-                : { fullName: user?.name ?? '' }
-            }
-            online={options.online}
-            cod={options.cod}
-            codReason={options.codReason}
-            codFeePaise={settings.codFeePaise}
-          />
-        )}
-      </div>
-
-      <aside aria-labelledby="summary-heading" className="hidden h-fit space-y-5 rounded-sm border border-gold-500/30 bg-white p-6 lg:block">
-        <h2 id="summary-heading" className="font-serif text-xl text-maroon-900">
-          Your order
-        </h2>
-        {summary}
-      </aside>
-    </div>
+    <>
+      {!user && (
+        <p className="mb-6 text-sm text-stone">
+          Checking out as a guest.{' '}
+          <Link href="/account/login?next=/checkout" className="text-maroon-800 underline underline-offset-2">
+            Sign in
+          </Link>{' '}
+          to use saved addresses.
+        </p>
+      )}
+      {!options.online && !options.cod ? (
+        <p role="alert" className="rounded-sm border border-maroon-700/40 bg-maroon-700/5 px-4 py-3 text-sm text-maroon-800">
+          Orders cannot be placed right now because no payment method is available. Please check back soon.
+        </p>
+      ) : (
+        <CheckoutForm
+          signedInEmail={user?.email ?? null}
+          defaults={
+            saved
+              ? {
+                  fullName: saved.fullName,
+                  phone: saved.phone,
+                  line1: saved.line1,
+                  line2: saved.line2 ?? '',
+                  landmark: saved.landmark ?? '',
+                  city: saved.city,
+                  state: saved.state,
+                  pincode: saved.pincode,
+                }
+              : { fullName: user?.name ?? '' }
+          }
+          options={options}
+          choices={quote.choices}
+          codFeePaise={settings.codFeePaise}
+          expressPercent={settings.expressPrepaidDiscountBp / 100}
+          standardPercent={settings.standardPrepaidDiscountBp / 100}
+          items={items}
+          couponCode={quote.coupon?.ok ? quote.coupon.code : null}
+        />
+      )}
+    </>
   )
 }

@@ -19,7 +19,7 @@ import { type CreatedShipment, type Parcel, ProviderRejected, ProviderUnknown, t
 const tag = `it-ship-${Date.now()}`
 let n = 0
 let awbSeq = 0
-const settings: CommerceSettings = { shippingFlatPaise: 0, shippingFreeAbovePaise: null, codEnabled: true, codFeePaise: 0, codMinOrderPaise: 0, codMaxOrderPaise: 0 }
+const settings: CommerceSettings = { shippingFlatPaise: 0, shippingFreeAbovePaise: null, codEnabled: true, codFeePaise: 0, codMinOrderPaise: 0, codMaxOrderPaise: 0, expressEnabled: false, expressPrepaidDiscountBp: 0, standardPrepaidDiscountBp: 0 }
 const box = { weightGrams: 350, lengthCm: 15, breadthCm: 12, heightCm: 8 }
 
 /** A courier that does whatever the test tells it to, and remembers what it was sent. */
@@ -59,7 +59,7 @@ async function codOrder(qty = 2) {
   const cart = await createCart(null)
   await addToCart(cart.id, p.id, null, qty)
   const r = await placeOrder(
-    { cartId: cart.id, userId: null, email: `${tag}-g${n}@example.test`, address: { fullName: 'Asha Verma', phone: '9876543210', line1: '12 MG Road', line2: null, landmark: null, city: 'Pune', state: 'Maharashtra', pincode: '411001' }, paymentMethod: 'COD', couponCode: null, customerNote: null, saveAddress: false },
+    { cartId: cart.id, userId: null, email: `${tag}-g${n}@example.test`, address: { fullName: 'Asha Verma', phone: '9876543210', line1: '12 MG Road', line2: null, landmark: null, city: 'Pune', state: 'Maharashtra', pincode: '411001' }, paymentMethod: 'COD', delivery: 'STANDARD', couponCode: null, customerNote: null, saveAddress: false },
     settings,
     false,
   )

@@ -6,7 +6,7 @@ import { OrderSummary } from '@/components/OrderSummary'
 import { PageHeader } from '@/components/PageHeader'
 import { formatPaise } from '@/lib/money'
 import { getCurrentUser } from '@/server/auth/session'
-import { getCommerceSettings } from '@/server/settings'
+import { getCommerceSettings, onlinePaymentAvailable } from '@/server/settings'
 import { getCartCouponCode, MAX_LINE_QUANTITY } from '@/server/shop/cart'
 import { currentCartId } from '@/server/shop/cart-session'
 import { quoteCart } from '@/server/shop/checkout'
@@ -38,7 +38,7 @@ async function Cart() {
   if (!cartId) return <EmptyState title="Your cart is empty" body="Browse the collection and add something you like." />
 
   const [user, settings, couponCode] = await Promise.all([getCurrentUser(), getCommerceSettings(), getCartCouponCode(cartId)])
-  const quote = await quoteCart(cartId, { settings, paymentMethod: 'RAZORPAY', couponCode, userId: user?.id ?? null, email: null })
+  const quote = await quoteCart(cartId, { settings, couponCode, userId: user?.id ?? null, email: null })
   if (quote.lines.length === 0) {
     return <EmptyState title="Your cart is empty" body="Browse the collection and add something you like." />
   }
@@ -94,6 +94,15 @@ async function Cart() {
         {quote.totals && settings.shippingFreeAbovePaise !== null && quote.totals.shippingPaise > 0 && (
           <p className="text-xs text-stone">
             Add {formatPaise(settings.shippingFreeAbovePaise - (quote.totals.subtotalPaise - quote.totals.discountPaise))} more for free shipping.
+          </p>
+        )}
+        {onlinePaymentAvailable() && settings.standardPrepaidDiscountBp > 0 && (
+          <p className="rounded-sm bg-gold-300/30 px-3 py-2 text-sm text-maroon-900">
+            Pay online at checkout and save {settings.standardPrepaidDiscountBp / 100}%
+            {settings.expressEnabled && settings.expressPrepaidDiscountBp > settings.standardPrepaidDiscountBp
+              ? ` (${settings.expressPrepaidDiscountBp / 100}% with Express delivery)`
+              : ''}
+            .
           </p>
         )}
         {quote.hasProblems ? (

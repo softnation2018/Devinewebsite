@@ -7,7 +7,7 @@ export type SettingView = {
   key: string
   description: string | null
   needsOwnerDecision: boolean
-  kind: 'money' | 'moneyOrNone' | 'boolean' | 'days' | 'choice' | 'text'
+  kind: 'money' | 'moneyOrNone' | 'boolean' | 'days' | 'percent' | 'choice' | 'text'
   current: string
   checked: boolean
   options?: { value: string; label: string }[]
@@ -48,6 +48,7 @@ export function SettingForm({ s }: { s: SettingView }) {
             {(s.kind === 'money' || s.kind === 'moneyOrNone') && <span className="text-sm text-stone">₹</span>}
             <input id={id} name="value" defaultValue={s.current} inputMode={s.kind === 'text' ? undefined : 'decimal'} className={input} />
             {s.kind === 'days' && <span className="text-sm text-stone">days</span>}
+            {s.kind === 'percent' && <span className="text-sm text-stone">%</span>}
           </div>
         )}
         {s.hint && <p className="mt-1 text-xs text-stone">{s.hint}</p>}

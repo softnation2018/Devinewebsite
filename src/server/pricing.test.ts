@@ -133,4 +133,45 @@ describe('calculateOrderTotals', () => {
       calculateOrderTotals({ ...base, lines: [{ unitPricePaise: -1, quantity: 1, gstRateBp: 0 }] }),
     ).toThrow(PricingError)
   })
+
+  it('takes the prepaid discount after the coupon, for online payment only', () => {
+    const r = calculateOrderTotals({
+      ...base,
+      lines: [{ unitPricePaise: 149_900, quantity: 2, gstRateBp: 300 }],
+      coupon: { type: 'FIXED', valuePaise: 9_800, minOrderPaise: 0 },
+      prepaidDiscountBp: 1_000,
+    })
+    // ₹2,998 − ₹98 = ₹2,900; 10% off that is ₹290
+    expect(r).toMatchObject({ discountPaise: 9_800, prepaidDiscountPaise: 29_000, shippingPaise: 0, codFeePaise: 0, totalPaise: 261_000 })
+    // GST is worked out on what the customer actually pays for the items
+    expect(r.lineTaxes[0].taxablePaise + r.lineTaxes[0].taxPaise).toBe(261_000)
+
+    const cod = calculateOrderTotals({ ...base, paymentMethod: 'COD', prepaidDiscountBp: 1_000 })
+    expect(cod).toMatchObject({ prepaidDiscountPaise: 0, codFeePaise: 4_900, totalPaise: 104_900 })
+  })
+
+  it('judges free shipping before the prepaid discount', () => {
+    // ₹1,000 ships free; 15% off online must not bring shipping back
+    const r = calculateOrderTotals({ ...base, prepaidDiscountBp: 1_500 })
+    expect(r).toMatchObject({ prepaidDiscountPaise: 15_000, shippingPaise: 0, totalPaise: 85_000 })
+  })
+
+  it('spreads the prepaid discount over every line so the GST adds up', () => {
+    const r = calculateOrderTotals({
+      ...base,
+      lines: [
+        { unitPricePaise: 33_333, quantity: 1, gstRateBp: 300 },
+        { unitPricePaise: 66_667, quantity: 1, gstRateBp: 1_200, couponEligible: false },
+      ],
+      coupon: { type: 'PERCENTAGE', valueBp: 1_000, minOrderPaise: 0, maxDiscountPaise: null },
+      prepaidDiscountBp: 1_500,
+    })
+    const items = r.lineTaxes.reduce((a, t) => a + t.taxablePaise + t.taxPaise, 0)
+    expect(items).toBe(r.subtotalPaise - r.discountPaise - r.prepaidDiscountPaise)
+  })
+
+  it('rejects a prepaid discount outside 0 to 100%', () => {
+    expect(() => calculateOrderTotals({ ...base, prepaidDiscountBp: 10_001 })).toThrow(PricingError)
+    expect(() => calculateOrderTotals({ ...base, prepaidDiscountBp: 2.5 })).toThrow(PricingError)
+  })
 })

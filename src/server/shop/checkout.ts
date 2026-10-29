@@ -13,48 +13,75 @@ import type { AddressInput } from './address'
 import { type CartLine, loadCartLines } from './cart'
 import { checkCoupon, type CouponCheck, normaliseCouponCode, pricingLines } from './coupons'
 
+/** RAZORPAY stands for "pay online"; the gateway behind it may change. */
 export type PaymentChoice = 'RAZORPAY' | 'COD'
+export type DeliveryChoice = 'STANDARD' | 'EXPRESS'
 
-export type PaymentOptions = { online: boolean; cod: boolean; codReason: string | null }
+export type PaymentOptions = { online: boolean; cod: boolean; codReason: string | null; express: boolean; expressReason: string | null }
 
-/** Which payment methods this order total may use. */
+/**
+ * Which deliveries and payment methods this order may use. Express is paid
+ * online only, so it needs a working gateway; COD is Standard delivery only.
+ * The COD limits are checked against the total before the COD fee.
+ */
 export function paymentOptions(totalBeforeCodFeePaise: number, settings: CommerceSettings, onlineConfigured: boolean): PaymentOptions {
   let codReason: string | null = null
   if (!settings.codEnabled) codReason = 'Cash on Delivery is not available at the moment.'
   else if (totalBeforeCodFeePaise < settings.codMinOrderPaise) codReason = 'Cash on Delivery is available on larger orders.'
   else if (settings.codMaxOrderPaise > 0 && totalBeforeCodFeePaise > settings.codMaxOrderPaise)
     codReason = 'Cash on Delivery is not available for orders of this value.'
-  return { online: onlineConfigured, cod: codReason === null, codReason }
+  let expressReason: string | null = null
+  if (!settings.expressEnabled) expressReason = 'Express delivery is not available at the moment.'
+  else if (!onlineConfigured) expressReason = 'Express delivery needs online payment, which is being set up.'
+  return { online: onlineConfigured, cod: codReason === null, codReason, express: expressReason === null, expressReason }
+}
+
+/** The discount for paying online, which is larger with Express delivery. */
+export function prepaidDiscountBp(delivery: DeliveryChoice, settings: CommerceSettings): number {
+  return delivery === 'EXPRESS' ? settings.expressPrepaidDiscountBp : settings.standardPrepaidDiscountBp
+}
+
+/** Whether this delivery and payment pair is allowed, and why not. */
+export function checkChoice(delivery: DeliveryChoice, method: PaymentChoice, options: PaymentOptions): string | null {
+  if (delivery === 'EXPRESS' && method === 'COD') return 'Express delivery is for online payment only. Choose Standard delivery to pay cash on delivery.'
+  if (delivery === 'EXPRESS' && !options.express) return options.expressReason ?? 'Express delivery is not available.'
+  if (method === 'COD' && !options.cod) return options.codReason ?? 'Cash on Delivery is not available.'
+  if (method === 'RAZORPAY' && !options.online) return 'Online payment is not available yet.'
+  return null
 }
 
 export type CartQuote = {
   lines: CartLine[]
   hasProblems: boolean
   coupon: CouponCheck | null
+  /** Standard delivery before the payment choice: no online discount, no COD fee. */
   totals: PricingResult | null
+  /** The same cart priced for each delivery and payment pair. */
+  choices: { standardOnline: PricingResult; standardCod: PricingResult; expressOnline: PricingResult } | null
 }
 
 /** Prices a cart for display. The same numbers are recomputed at checkout. */
 export async function quoteCart(
   cartId: string,
-  opts: { settings: CommerceSettings; paymentMethod: PaymentChoice; couponCode: string | null; userId: string | null; email: string | null },
+  opts: { settings: CommerceSettings; couponCode: string | null; userId: string | null; email: string | null },
 ): Promise<CartQuote> {
   const lines = await loadCartLines(cartId)
   const buyable = lines.filter((l) => l.problem === null)
-  if (buyable.length === 0) return { lines, hasProblems: lines.length > 0, coupon: null, totals: null }
+  if (buyable.length === 0) return { lines, hasProblems: lines.length > 0, coupon: null, totals: null, choices: null }
 
-  const coupon = opts.couponCode
-    ? await checkCoupon(db, opts.couponCode, { lines: buyable, userId: opts.userId, email: opts.email })
-    : null
+  const coupon = opts.couponCode ? await checkCoupon(db, opts.couponCode, { lines: buyable, userId: opts.userId, email: opts.email }) : null
 
-  const totals = calculateOrderTotals({
+  const base = {
     lines: pricingLines(buyable, coupon),
     coupon: coupon?.ok ? coupon.pricing : null,
     shipping: { flatPaise: opts.settings.shippingFlatPaise, freeAbovePaise: opts.settings.shippingFreeAbovePaise },
-    paymentMethod: opts.paymentMethod,
     codFeePaise: opts.settings.codFeePaise,
-  })
-  return { lines, hasProblems: buyable.length !== lines.length, coupon, totals }
+  }
+  const price = (delivery: DeliveryChoice, paymentMethod: PaymentChoice) =>
+    calculateOrderTotals({ ...base, paymentMethod, prepaidDiscountBp: prepaidDiscountBp(delivery, opts.settings) })
+  const choices = { standardOnline: price('STANDARD', 'RAZORPAY'), standardCod: price('STANDARD', 'COD'), expressOnline: price('EXPRESS', 'RAZORPAY') }
+  const totals = calculateOrderTotals({ ...base, paymentMethod: 'COD', codFeePaise: 0 })
+  return { lines, hasProblems: buyable.length !== lines.length, coupon, totals, choices }
 }
 
 // ------------------------------------------------------------- place order
@@ -66,6 +93,7 @@ export type PlaceOrderInput = {
   email: string
   address: AddressInput
   paymentMethod: PaymentChoice
+  delivery: DeliveryChoice
   couponCode: string | null
   customerNote: string | null
   saveAddress: boolean
@@ -92,11 +120,7 @@ export function newOrderNumber(now = new Date()): string {
   return `DM-${date}-${suffix}`
 }
 
-export async function placeOrder(
-  input: PlaceOrderInput,
-  settings: CommerceSettings,
-  onlineConfigured: boolean,
-): Promise<PlaceOrderResult> {
+export async function placeOrder(input: PlaceOrderInput, settings: CommerceSettings, onlineConfigured: boolean): Promise<PlaceOrderResult> {
   try {
     return await db.$transaction(
       async (tx) => {
@@ -111,11 +135,7 @@ export async function placeOrder(
           const inv = inventories.get(line.variantId ?? line.productId)
           const available = inv ? inv.onHand - inv.reserved : 0
           if (line.problem === 'UNAVAILABLE' || available < line.quantity) {
-            throw new Abort({
-              ok: false,
-              reason: 'CART_CHANGED',
-              message: 'Some items in your cart have just sold out or changed. Please review your cart.',
-            })
+            throw new Abort({ ok: false, reason: 'CART_CHANGED', message: 'Some items in your cart have just sold out or changed. Please review your cart.' })
           }
         }
 
@@ -123,11 +143,7 @@ export async function placeOrder(
         const couponCode = input.couponCode ? normaliseCouponCode(input.couponCode) : null
         if (couponCode) {
           await tx.$queryRaw`SELECT id FROM "Coupon" WHERE code = ${couponCode} FOR UPDATE`
-          const check = await checkCoupon(tx, couponCode, {
-            lines,
-            userId: input.userId,
-            email: input.userId ? null : input.email,
-          })
+          const check = await checkCoupon(tx, couponCode, { lines, userId: input.userId, email: input.userId ? null : input.email })
           if (!check.ok) throw new Abort({ ok: false, reason: 'COUPON', message: check.message })
           coupon = check
         }
@@ -138,15 +154,15 @@ export async function placeOrder(
           shipping: { flatPaise: settings.shippingFlatPaise, freeAbovePaise: settings.shippingFreeAbovePaise },
           codFeePaise: settings.codFeePaise,
         }
-        const beforeFee = calculateOrderTotals({ ...pricingBase, paymentMethod: 'RAZORPAY' })
+        const beforeFee = calculateOrderTotals({ ...pricingBase, paymentMethod: 'COD', codFeePaise: 0 })
         const options = paymentOptions(beforeFee.totalPaise, settings, onlineConfigured)
-        if (input.paymentMethod === 'COD' && !options.cod) {
-          throw new Abort({ ok: false, reason: 'PAYMENT_METHOD', message: options.codReason ?? 'Cash on Delivery is not available.' })
-        }
-        if (input.paymentMethod === 'RAZORPAY' && !options.online) {
-          throw new Abort({ ok: false, reason: 'PAYMENT_METHOD', message: 'Online payment is not available yet.' })
-        }
-        const totals = calculateOrderTotals({ ...pricingBase, paymentMethod: input.paymentMethod })
+        const refused = checkChoice(input.delivery, input.paymentMethod, options)
+        if (refused) throw new Abort({ ok: false, reason: 'PAYMENT_METHOD', message: refused })
+        const totals = calculateOrderTotals({
+          ...pricingBase,
+          paymentMethod: input.paymentMethod,
+          prepaidDiscountBp: prepaidDiscountBp(input.delivery, settings),
+        })
 
         const accessToken = newToken()
         const isCod = input.paymentMethod === 'COD'
@@ -163,8 +179,10 @@ export async function placeOrder(
             confirmedAt: isCod ? new Date() : null,
             paymentStatus: 'PENDING',
             paymentMethod: input.paymentMethod,
+            deliverySpeed: input.delivery,
             subtotalPaise: totals.subtotalPaise,
             discountPaise: totals.discountPaise,
+            prepaidDiscountPaise: totals.prepaidDiscountPaise,
             shippingPaise: totals.shippingPaise,
             codFeePaise: totals.codFeePaise,
             taxPaise: totals.taxPaise,
@@ -191,9 +209,7 @@ export async function placeOrder(
                 weightGrams: l.weightGrams * l.quantity,
               })),
             },
-            ...(isCod
-              ? { payments: { create: { provider: 'cod', method: 'COD', status: 'PENDING', amountPaise: totals.totalPaise } } }
-              : {}),
+            ...(isCod ? { payments: { create: { provider: 'cod', method: 'COD', status: 'PENDING', amountPaise: totals.totalPaise } } } : {}),
           },
           select: { id: true, orderNumber: true },
         })
@@ -241,10 +257,7 @@ async function lockInventories(tx: Prisma.TransactionClient, lines: CartLine[]):
 }
 
 async function saveAddressForUser(tx: Prisma.TransactionClient, userId: string, a: AddressInput) {
-  const same = await tx.address.findFirst({
-    where: { userId, line1: a.line1, pincode: a.pincode, fullName: a.fullName },
-    select: { id: true },
-  })
+  const same = await tx.address.findFirst({ where: { userId, line1: a.line1, pincode: a.pincode, fullName: a.fullName }, select: { id: true } })
   if (same) return
   const count = await tx.address.count({ where: { userId } })
   await tx.address.create({ data: { userId, ...a, isDefault: count === 0 } })
@@ -262,8 +275,10 @@ export async function findOrderForViewer(orderNumber: string, viewer: { userId: 
       status: true,
       paymentStatus: true,
       paymentMethod: true,
+      deliverySpeed: true,
       subtotalPaise: true,
       discountPaise: true,
+      prepaidDiscountPaise: true,
       shippingPaise: true,
       codFeePaise: true,
       taxPaise: true,
@@ -272,9 +287,7 @@ export async function findOrderForViewer(orderNumber: string, viewer: { userId: 
       shippingAddress: true,
       guestEmail: true,
       placedAt: true,
-      items: {
-        select: { id: true, nameSnapshot: true, variantSnapshot: true, quantity: true, unitPricePaise: true, lineTotalPaise: true },
-      },
+      items: { select: { id: true, nameSnapshot: true, variantSnapshot: true, quantity: true, unitPricePaise: true, lineTotalPaise: true } },
       refunds: {
         where: { status: { not: 'FAILED' } },
         orderBy: { createdAt: 'asc' },

@@ -9,7 +9,7 @@ import { saveSetting } from './settings'
 
 const tag = `it-adm-${Date.now()}`
 let n = 0
-const settings: CommerceSettings = { shippingFlatPaise: 0, shippingFreeAbovePaise: null, codEnabled: true, codFeePaise: 0, codMinOrderPaise: 0, codMaxOrderPaise: 0 }
+const settings: CommerceSettings = { shippingFlatPaise: 0, shippingFreeAbovePaise: null, codEnabled: true, codFeePaise: 0, codMinOrderPaise: 0, codMaxOrderPaise: 0, expressEnabled: false, expressPrepaidDiscountBp: 0, standardPrepaidDiscountBp: 0 }
 
 async function actor() {
   const u = await db.user.create({ data: { email: `${tag}-${++n}@example.test`, role: 'ADMIN' } })
@@ -25,7 +25,7 @@ async function codOrder(couponCode: string | null = null) {
   const cart = await createCart(null)
   await addToCart(cart.id, p.id, null, 2)
   const r = await placeOrder(
-    { cartId: cart.id, userId: null, email: `${tag}-g${n}@example.test`, address: { fullName: 'A', phone: '9876543210', line1: 'x', line2: null, landmark: null, city: 'Pune', state: 'Maharashtra', pincode: '411001' }, paymentMethod: 'COD', couponCode, customerNote: null, saveAddress: false },
+    { cartId: cart.id, userId: null, email: `${tag}-g${n}@example.test`, address: { fullName: 'A', phone: '9876543210', line1: 'x', line2: null, landmark: null, city: 'Pune', state: 'Maharashtra', pincode: '411001' }, paymentMethod: 'COD', delivery: 'STANDARD', couponCode, customerNote: null, saveAddress: false },
     settings,
     false,
   )

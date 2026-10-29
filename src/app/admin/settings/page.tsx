@@ -43,6 +43,7 @@ async function Settings() {
   const rows = await listSettings()
   const groups = [
     ['Shipping', 'shipping.'],
+    ['Delivery and prepaid discounts', ['delivery.', 'prepaid.']],
     ['Cash on Delivery', 'cod.'],
     ['Returns and cancellation', ['returns.', 'cancellation.']],
     ['Tax', 'tax.'],
